@@ -1,3 +1,4 @@
 %{
   "flame": {:hex, :flame, "0.5.3", "af9a16c902dac100b4f6b91e64c10ef95f9785ef7b638fcfcebabbec682990e6", [:mix], [{:castore, ">= 0.0.0", [hex: :castore, repo: "hexpm", optional: true]}, {:jason, ">= 0.0.0", [hex: :jason, repo: "hexpm", optional: true]}], "hexpm", "8b0b42026c1df2eeffdd8860b77af8437ab7aa72b5e648f8e92d8198f3b7fa1e"},
+  "jason": {:hex, :jason, "1.4.5", "2e3a008590b0b8d7388c20293e9dcc9cf3e5d642fd2a114e4cbbb52e595d940a", [:mix], [{:decimal, "~> 1.0 or ~> 2.0 or ~> 3.0", [hex: :decimal, repo: "hexpm", optional: true]}], "hexpm", "b0c823996102bcd0239b3c2444eb00409b72f6a140c1950bc8b457d836b30684"},
 }

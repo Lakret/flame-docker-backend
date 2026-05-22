@@ -123,9 +123,9 @@ Both parent and runner use container names as Erlang node hostnames:
 
 1. Merge `Application.get_env(:flame, FlameDockerBackend)` with pool opts.
 2. Validate required config: `:image`, and either `:network` or `kamal: true`.
-3. Optional config: `:docker_socket`, `:kamal`, `:parent_hostname`, `:cpu_shares`,
-   `:memory`, `:nano_cpus`, `:ulimits`, `:mounts`, `:storage_opt`, `:boot_timeout`,
-   `:env`, `:cmd`, `:log`.
+3. Optional config: `:docker_socket`, `:kamal`, `:parent_hostname`, `:host_config`,
+   `:mounts`, `:boot_timeout`, `:env`, `:cmd`, `:log`.
+   `:host_config` is an arbitrary Docker `HostConfig` map (passthrough).
 4. If `kamal: true` and `:network` is unset, default `:network` to `"kamal"`.
 5. Generate unique runner name: `"flame-#{rand_id(20)}"` (used as container name
    and Erlang hostname).
@@ -139,14 +139,14 @@ Both parent and runner use container names as Erlang node hostnames:
 
 ### `remote_boot/1`
 
-1. Call Docker API: create container with the configured image, env, network,
-   and optional `HostConfig` / `Mounts` (see §5).
+1. Build the create payload via `build_create_body/1` (see §5): merge user
+   `:host_config` / `:mounts` with required wiring fields, then call Docker API.
    - Container `name` and `Hostname` = runner node base name.
    - Attach to the required user-defined network (`:network`, or `"kamal"` when
      `kamal: true`).
    - Set `ERL_FLAGS=--name <node_base>@<container_name>`.
    - Forward `RELEASE_COOKIE` from the parent so runner and parent share a cookie.
-   - Set `HostConfig.AutoRemove: true` on create (safety net).
+   - Force `HostConfig.AutoRemove: true` (backend override; see §5).
 2. Start the container.
 3. `receive` the `{parent_ref, {:remote_up, terminator_pid}}` message within `boot_timeout`.
 4. Return `{:ok, terminator_pid, new_state}`.
@@ -194,18 +194,20 @@ Could handle unexpected container death. Likely not needed for v1.
 # Generic Docker deployment
 config :flame, FlameDockerBackend,
   image: "my-app:latest",
-  docker_socket: "/var/run/docker.sock",  # default
+  docker_socket: "/var/run/docker.sock",  # parent :httpc profile socket (default)
   network: "my_network",                  # required — user-defined network
   parent_hostname: "my-app",              # optional — stable parent DNS name
   boot_timeout: 30_000,
-  cpu_shares: 1024,                        # HostConfig.CpuShares
-  memory: 2_147_483_648,                   # HostConfig.Memory (bytes)
-  nano_cpus: 2_000_000_000,                # HostConfig.NanoCpus (2 CPUs)
-  ulimits: [%{"Name" => "nofile", "Soft" => 65536, "Hard" => 65536}],
-  mounts: [                                # top-level Mounts
+  host_config: %{
+    "CpuShares" => 1024,
+    "Memory" => 2_147_483_648,            # bytes
+    "NanoCpus" => 2_000_000_000,          # 2 CPUs
+    "Ulimits" => [%{"Name" => "nofile", "Soft" => 65536, "Hard" => 65536}],
+    "StorageOpt" => %{"size" => "10G"}
+  },
+  mounts: [
     %{"Type" => "bind", "Source" => "/data/models", "Target" => "/models", "ReadOnly" => true}
   ],
-  storage_opt: %{"size" => "10G"},         # HostConfig.StorageOpt
   env: %{
     "DATABASE_URL" => "...",
   }
@@ -225,36 +227,155 @@ Per-pool overrides via the `backend` option in `FLAME.Pool`:
   name: MyRunner,
   backend: {FlameDockerBackend,
     image: "my-app:latest",
-    nano_cpus: 2_000_000_000,
-    memory: 2_147_483_648}}
+    host_config: %{
+      "NanoCpus" => 2_000_000_000,
+      "Memory" => 2_147_483_648
+    }}}
 ```
 
-## 5. Resource Limits & Mounts
+## 5. Container Create Payload
 
-**Decision:** Expose these Docker container-create fields as optional backend config.
-Values pass through to the create payload (maps/lists as Docker expects).
+**Decision:** Accept arbitrary Docker API maps for `HostConfig` and passthrough
+lists for `Mounts`. Do not whitelist individual `HostConfig` keys in backend
+config. The backend merges user input with required wiring at create time.
 
-| Config key     | Docker field              | Location        |
-|----------------|---------------------------|-----------------|
-| `:cpu_shares`  | `CpuShares`               | `HostConfig`    |
-| `:memory`      | `Memory`                  | `HostConfig`    |
-| `:nano_cpus`   | `NanoCpus`                | `HostConfig`    |
-| `:ulimits`     | `Ulimits`                 | `HostConfig`    |
-| `:storage_opt` | `StorageOpt`              | `HostConfig`    |
-| `:mounts`      | `Mounts`                  | top-level       |
+### User-provided config
 
-All optional — omit any key to leave that constraint unset. Accept per-pool
-overrides via the `backend` option in `FLAME.Pool`.
+| Config key      | Docker field / location | Notes                                      |
+|-----------------|-------------------------|--------------------------------------------|
+| `:image`        | `"Image"`               | Required                                   |
+| `:env`          | `"Env"`                 | Map of `"KEY" => "value"` strings          |
+| `:cmd`          | `"Cmd"`                 | Optional command override                  |
+| `:host_config`  | `"HostConfig"`          | Any valid `HostConfig` map (passthrough)   |
+| `:mounts`       | `"Mounts"`              | Top-level mounts list (passthrough)        |
 
-**Notes:**
-- `:memory` is bytes (integer). We may accept human-readable strings (`"2g"`)
-  and normalize to bytes in `init/1`.
-- `:nano_cpus` is 1 CPU = `1_000_000_000` (Docker's NanoCPUs unit).
-- `:cpu_shares` is relative weight (default 1024); prefer `:nano_cpus` for
-  hard CPU caps.
-- `:ulimits` and `:mounts` are lists of maps matching the Docker API schema.
-- `:storage_opt` requires a storage driver that supports it (e.g. `overlay2`
-  with quota).
+Users set resource limits, binds, capabilities, etc. directly inside
+`:host_config` using Docker's field names (`"Memory"`, `"NanoCpus"`,
+`"Ulimits"`, `"Binds"`, …).
+
+### Backend-managed wiring (always applied)
+
+Implement `build_create_body/1` to assemble the final
+`POST /containers/create` body. User config is the base; backend fields are
+merged on top for wiring-critical keys.
+
+| Field / location                         | Set by   | Value / behavior |
+|------------------------------------------|----------|------------------|
+| `name` (query param)                     | Backend  | `"flame-<random_id>"` — container name and Erlang hostname |
+| `"Image"`                                | Backend  | From `:image` |
+| `"Hostname"`                             | Backend  | Same as container `name` — matches Docker DNS on `:network` |
+| `"NetworkingConfig"."EndpointsConfig"`   | Backend  | `%{"<network>" => %{}}` — attaches runner to required user-defined network (`:network`, or `"kamal"`) |
+| `"Env"`                                  | Backend  | Merged env (see below) |
+| `"Cmd"`                                  | Backend  | From `:cmd` when set |
+| `"HostConfig"."AutoRemove"`              | Backend  | Always `true` — safety net for cleanup |
+| `"Mounts"`                               | User     | From `:mounts` when set; backend does not inject mounts by default |
+
+**Not set on runners by default:** Docker Engine API socket mount. DooD applies
+to the **parent** container (`docker_socket` configures the parent's
+`:httpc` profile). Runners only need a socket mount if the app itself must talk
+to Docker — add it via `:mounts` or `"Binds"` in `:host_config`.
+
+Example runner mount for nested Docker access:
+
+```elixir
+mounts: [
+  %{
+    "Type" => "bind",
+    "Source" => "/var/run/docker.sock",
+    "Target" => "/var/run/docker.sock",
+    "ReadOnly" => true
+  }
+]
+```
+
+### Merge rules
+
+**`:host_config` → `"HostConfig"`**
+
+```elixir
+host_config =
+  user_host_config
+  |> Map.merge(%{"AutoRemove" => true})  # backend wins
+```
+
+Deep-merge nested maps if we add backend-owned `HostConfig` keys later; today
+only `"AutoRemove"` is forced.
+
+**`:env` → `"Env"`**
+
+Build the wiring env map, then merge user `:env` underneath so backend keys win:
+
+```elixir
+wiring_env = %{
+  "FLAME_PARENT" => "<parent_node_base>@<parent_hostname>",
+  "ERL_FLAGS" => "--name <runner_node_base>@<container_name>",
+  "PHX_SERVER" => "false",
+  "RELEASE_COOKIE" => parent_release_cookie,  # when present
+  "ERL_AFLAGS" => parent_erl_afags,            # when present
+  "ERL_ZFLAGS" => parent_erl_zflags            # when present
+}
+
+env =
+  user_env
+  |> Map.merge(wiring_env)  # wiring wins on conflict
+  |> Map.to_list()
+  |> Enum.map(fn {k, v} -> "#{k}=#{v}" end)
+```
+
+Users cannot override `FLAME_PARENT`, `ERL_FLAGS`, or `PHX_SERVER`. Other keys
+from `:env` pass through.
+
+**`:mounts` → `"Mounts"`**
+
+Passthrough. Omit the key when `:mounts` is unset.
+
+**`:network` → `"NetworkingConfig"`**
+
+Always backend-owned. User cannot attach runners to `bridge` or skip the
+required network. Extra networks (if ever needed) would be a separate v2 option.
+
+### Example merged create body
+
+For `network: "my_network"`, `image: "my-app:latest"`, and the `:host_config`
+from §4, `build_create_body/1` produces:
+
+```elixir
+%{
+  "Image" => "my-app:latest",
+  "Hostname" => "flame-abc123",
+  "Env" => [
+    "DATABASE_URL=...",
+    "FLAME_PARENT=my_app@my-app",
+    "ERL_FLAGS=--name my_app@flame-abc123",
+    "PHX_SERVER=false",
+    "RELEASE_COOKIE=..."
+  ],
+  "HostConfig" => %{
+    "CpuShares" => 1024,
+    "Memory" => 2_147_483_648,
+    "NanoCpus" => 2_000_000_000,
+    "Ulimits" => [%{"Name" => "nofile", "Soft" => 65536, "Hard" => 65536}],
+    "StorageOpt" => %{"size" => "10G"},
+    "AutoRemove" => true
+  },
+  "NetworkingConfig" => %{
+    "EndpointsConfig" => %{"my_network" => %{}}
+  },
+  "Mounts" => [
+    %{"Type" => "bind", "Source" => "/data/models", "Target" => "/models", "ReadOnly" => true}
+  ]
+}
+```
+
+Container `name` is passed separately to `DockerAPI.create_container/2`.
+
+### HostConfig notes
+
+- `"Memory"` is bytes (integer).
+- `"NanoCpus"`: 1 CPU = `1_000_000_000`.
+- `"CpuShares"` is relative weight (default 1024); prefer `"NanoCpus"` for hard caps.
+- `"StorageOpt"` requires a storage driver that supports it (e.g. `overlay2` with quota).
+- Any other valid Docker `HostConfig` field is allowed without backend changes.
 
 ## 6. ERL_FLAGS / Node Naming
 
@@ -296,11 +417,11 @@ the user must ensure both nodes share a cookie by other means (e.g. set
    stop-then-delete helper.
 5. **Erlang cookie:** — forward the parent's `RELEASE_COOKIE`
    env var to runner containers. No cookie file mounting.
-6. **Resource limits:** — expose optional `:cpu_shares`,
-   `:memory`, `:nano_cpus`, `:ulimits`, `:mounts`, and `:storage_opt`, mapped
-   to Docker `HostConfig` / `Mounts` on container create.
-7. **Volumes:** — covered by `:mounts` (bind mounts, volumes,
-   tmpfs per Docker `Mounts` schema).
+6. **Container create payload:** — passthrough `:host_config` and `:mounts`;
+   backend merges wiring fields (`Hostname`, `NetworkingConfig`, env, `AutoRemove`)
+   via `build_create_body/1`. No whitelisted `HostConfig` keys.
+7. **Volumes:** — covered by `:mounts` or `"Binds"` in `:host_config` (bind
+   mounts, volumes, tmpfs per Docker schema).
 
 ## 8. Implementation Order
 
