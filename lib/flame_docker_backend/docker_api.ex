@@ -53,7 +53,51 @@ defmodule FlameDockerBackend.DockerAPI do
   Full step-by-step: `docs/DOCKER_API_CLIENT_IMPLEMENTATION.md`
   """
 
+  # WSL2: /mnt/wsl/shared-docker/docker.sock
   @default_socket "/var/run/docker.sock"
   @profile :flame_docker
-  @docker_api_version "v1.43"
+  @docker_api_version "v1.45"
+  @prefix "http://localhost/#{@docker_api_version}"
+
+  @doc """
+  Initializes :httpc profile for connecting to the Docker API Unix `socket`.
+  """
+  @spec init(String.t()) :: {:ok, pid()} | {:error, any()}
+  def init(socket \\ @default_socket) do
+    socket = socket |> String.to_charlist()
+
+    with {:ok, _} <- Application.ensure_all_started(:inets),
+         {:ok, profile_pid} <- :inets.start(:httpc, profile: @profile),
+         :ok <- :httpc.set_options([unix_socket: socket, ipfamily: :local], @profile) do
+      {:ok, profile_pid}
+    end
+  end
+
+  @doc false
+  def decode_resp(response)
+
+  def decode_resp({:ok, {{_protocol, status_code, _status}, _headers, body} = resp}) do
+    case status_code do
+      200 -> Jason.decode(body)
+      _ -> {:error, resp}
+    end
+  end
+
+  def decode_resp(err), do: err
+
+  @spec version() :: String.t()
+  def version() do
+    with {:ok, %{"ApiVersion" => version}} <-
+           :httpc.request(~c"http://localhost/version", @profile) |> decode_resp() do
+      {:ok, version}
+    end
+  end
+
+  @doc """
+  List containers
+  """
+  def ps() do
+    :httpc.request(~c"#{@prefix}/containers/json", @profile)
+    |> decode_resp()
+  end
 end
