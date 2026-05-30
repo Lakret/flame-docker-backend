@@ -75,28 +75,54 @@ defmodule FlameDockerBackend.DockerAPI do
   end
 
   @doc false
-  def decode_resp(response)
+  def decode_resp(response, multiline \\ false)
 
-  def decode_resp({:ok, {{_protocol, status_code, _status}, _headers, body} = resp}) do
+  def decode_resp(
+        {:ok, {{_protocol, status_code, _status}, _headers, body} = resp},
+        multiline
+      ) do
+    decoder =
+      if multiline,
+        do: fn body ->
+          body
+          |> to_string()
+          |> String.split("\r\n", trim: true)
+          |> Enum.reduce_while({:ok, []}, fn line, {:ok, prev_resp} ->
+            case Jason.decode(line) do
+              {:ok, resp} ->
+                {:cont, {:ok, [resp | prev_resp]}}
+
+              {:error, err} ->
+                {:halt,
+                 {:error, %{"line" => line, "jason_error" => err, "prev_resp" => prev_resp}}}
+            end
+          end)
+          |> then(fn
+            {:ok, resp} -> {:ok, Enum.reverse(resp)}
+            x -> x
+          end)
+        end,
+        else: fn body -> body |> to_string() |> Jason.decode() end
+
     case status_code do
-      _ when status_code in [200, 201] -> Jason.decode(body)
+      _ when status_code in [200, 201] -> decoder.(body)
       _ -> {:error, resp}
     end
   end
 
-  def decode_resp(err), do: err
+  def decode_resp(err, _multiline), do: err
 
   def post(url, body, http_options \\ [])
 
   def post(url, nil, http_options) do
-    url = String.to_charlist(url)
-    :httpc.request(:post, {url, []}, http_options, [], @profile)
+    url = String.to_charlist(url) |> dbg
+    :httpc.request(:post, {url, [], ~c"text/plain", ""}, http_options, [], @profile)
   end
 
   def post(url, body, http_options) when is_map(body) do
     with {:ok, body} <- Jason.encode(body) do
       body = String.to_charlist(body)
-      url = String.to_charlist(url) |> dbg
+      url = String.to_charlist(url)
       :httpc.request(:post, {url, [], ~c"application/json", body}, http_options, [], @profile)
     end
   end
@@ -118,17 +144,22 @@ defmodule FlameDockerBackend.DockerAPI do
   end
 
   def pull_image(%{"fromImage" => from_image} = params) do
-    with {:ok, resp} <- post("#{@prefix}/images/create?fromImage=#{from_image}", params) do
-      Logger.info("pull_image response: #{inspect(resp)}.")
-      :ok
-    end
+    tag = Map.get(params, "tag", "latest")
+
+    post("#{@prefix}/images/create?fromImage=#{from_image}&tag=#{tag}", nil)
+    |> decode_resp(true)
+    |> dbg
   end
 
   # `create_container/2` — `POST /containers/create?name=<URI.encode(name)>`; returns `{:ok, %{"Id" => id}}`
   def create_container(%{"name" => name} = params) when is_binary(name) do
     with {:ok, %{"Id" => id}} <-
-           post("#{@prefix}/containers/create?name=#{URI.encode(name)}", params) do
+           post("#{@prefix}/containers/create?name=#{URI.encode(name)}", params) |> decode_resp() do
       {:ok, id}
     end
   end
+
+  # resp = DockerAPI.pull_image(%{"fromImage" => "hello-world"})
+  # ~c"http://localhost/v1.45/images/create?fromImage=hello-world"
+  # resp = DockerAPI.create_container(%{"name" => "test", "Image" => "hello-world"}
 end
