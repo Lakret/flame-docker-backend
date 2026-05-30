@@ -52,6 +52,7 @@ defmodule FlameDockerBackend.DockerAPI do
 
   Full step-by-step: `docs/DOCKER_API_CLIENT_IMPLEMENTATION.md`
   """
+  require Logger
 
   # WSL2: /mnt/wsl/shared-docker/docker.sock
   @default_socket "/var/run/docker.sock"
@@ -78,12 +79,27 @@ defmodule FlameDockerBackend.DockerAPI do
 
   def decode_resp({:ok, {{_protocol, status_code, _status}, _headers, body} = resp}) do
     case status_code do
-      200 -> Jason.decode(body)
+      _ when status_code in [200, 201] -> Jason.decode(body)
       _ -> {:error, resp}
     end
   end
 
   def decode_resp(err), do: err
+
+  def post(url, body, http_options \\ [])
+
+  def post(url, nil, http_options) do
+    url = String.to_charlist(url)
+    :httpc.request(:post, {url, []}, http_options, [], @profile)
+  end
+
+  def post(url, body, http_options) when is_map(body) do
+    with {:ok, body} <- Jason.encode(body) do
+      body = String.to_charlist(body)
+      url = String.to_charlist(url) |> dbg
+      :httpc.request(:post, {url, [], ~c"application/json", body}, http_options, [], @profile)
+    end
+  end
 
   @spec version() :: String.t()
   def version() do
@@ -99,5 +115,20 @@ defmodule FlameDockerBackend.DockerAPI do
   def ps() do
     :httpc.request(~c"#{@prefix}/containers/json", @profile)
     |> decode_resp()
+  end
+
+  def pull_image(%{"fromImage" => from_image} = params) do
+    with {:ok, resp} <- post("#{@prefix}/images/create?fromImage=#{from_image}", params) do
+      Logger.info("pull_image response: #{inspect(resp)}.")
+      :ok
+    end
+  end
+
+  # `create_container/2` — `POST /containers/create?name=<URI.encode(name)>`; returns `{:ok, %{"Id" => id}}`
+  def create_container(%{"name" => name} = params) when is_binary(name) do
+    with {:ok, %{"Id" => id}} <-
+           post("#{@prefix}/containers/create?name=#{URI.encode(name)}", params) do
+      {:ok, id}
+    end
   end
 end
