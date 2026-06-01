@@ -55,6 +55,8 @@ defmodule FlameDockerBackend.DockerAPI do
   require Logger
 
   # WSL2: /mnt/wsl/shared-docker/docker.sock
+  # macOS: /Users/<user>/.docker/run/docker.sock
+  # Path.join(System.user_home(), ".docker/run/docker.sock") |> File.stat
   @default_socket "/var/run/docker.sock"
   @profile :flame_docker
   @docker_api_version "v1.45"
@@ -112,6 +114,7 @@ defmodule FlameDockerBackend.DockerAPI do
 
   def decode_resp(err, _multiline), do: err
 
+  @doc false
   def post(url, body, http_options \\ [])
 
   def post(url, nil, http_options) do
@@ -159,6 +162,9 @@ defmodule FlameDockerBackend.DockerAPI do
     end
   end
 
+  # alias FlameDockerBackend.DockerAPI
+  # DockerAPI.init()
+  # DockerAPI.version()
   # resp = DockerAPI.pull_image(%{"fromImage" => "hello-world"})
   # ~c"http://localhost/v1.45/images/create?fromImage=hello-world"
   # resp = DockerAPI.create_container(%{"name" => "test", "Image" => "hello-world"}
