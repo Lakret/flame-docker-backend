@@ -11,9 +11,16 @@ defmodule FlameDockerBackend.DockerAPI do
   ## Setup
 
   Call `init/1` once before any other function — typically from
-  `FlameDockerBackend.init/1`. On WSL2, pass the socket path explicitly:
+  `FlameDockerBackend.init/1`.
+
+  On WSL2, pass the socket path explicitly:
 
       DockerAPI.init("/mnt/wsl/shared-docker/docker.sock")
+
+  On macOS, Docker socket is mounted in user directory:
+
+      Path.join(System.user_home(), ".docker/run/docker.sock")
+      |> DockerAPI.init()
 
   ## Workflow
 
@@ -52,17 +59,19 @@ defmodule FlameDockerBackend.DockerAPI do
   def init(socket \\ @default_socket) do
     socket_cl = String.to_charlist(socket)
 
-    case :inets.start(:httpc, profile: @profile) do
-      {:ok, pid} ->
-        :ok = :httpc.set_options([unix_socket: socket_cl, ipfamily: :local], @profile)
-        {:ok, pid}
+    with {:ok, _} <- Application.ensure_all_started(:inets) do
+      case :inets.start(:httpc, profile: @profile) do
+        {:ok, pid} ->
+          :ok = :httpc.set_options([unix_socket: socket_cl, ipfamily: :local], @profile)
+          {:ok, pid}
 
-      {:error, {:already_started, pid}} ->
-        :ok = :httpc.set_options([unix_socket: socket_cl, ipfamily: :local], @profile)
-        {:ok, pid}
+        {:error, {:already_started, pid}} ->
+          :ok = :httpc.set_options([unix_socket: socket_cl, ipfamily: :local], @profile)
+          {:ok, pid}
 
-      {:error, reason} ->
-        {:error, reason}
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 
@@ -71,8 +80,7 @@ defmodule FlameDockerBackend.DockerAPI do
   """
   @spec version() :: {:ok, String.t()} | {:error, any()}
   def version() do
-    with {:ok, %{"ApiVersion" => version}} <-
-           :httpc.request(~c"http://localhost/version", @profile) |> decode_resp() do
+    with {:ok, %{"ApiVersion" => version}} <- :httpc.request(~c"http://localhost/version", @profile) |> decode_resp() do
       {:ok, version}
     end
   end
@@ -96,10 +104,7 @@ defmodule FlameDockerBackend.DockerAPI do
   def pull_image(%{"fromImage" => from_image} = params) do
     tag = Map.get(params, "tag", "latest")
 
-    post(
-      "#{@prefix}/images/create?fromImage=#{URI.encode(from_image)}&tag=#{URI.encode(tag)}",
-      nil
-    )
+    post("#{@prefix}/images/create?fromImage=#{URI.encode(from_image)}&tag=#{URI.encode(tag)}", nil)
     |> decode_resp(true)
   end
 
@@ -110,9 +115,7 @@ defmodule FlameDockerBackend.DockerAPI do
   """
   @spec create_container(map()) :: {:ok, String.t()} | {:error, any()}
   def create_container(%{"name" => name} = params) when is_binary(name) do
-    with {:ok, %{"Id" => id}} <-
-           post("#{@prefix}/containers/create?name=#{URI.encode(name)}", params)
-           |> decode_resp() do
+    with {:ok, %{"Id" => id}} <- post("#{@prefix}/containers/create?name=#{URI.encode(name)}", params) |> decode_resp() do
       {:ok, id}
     end
   end
