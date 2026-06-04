@@ -41,6 +41,7 @@ defmodule FlameDockerBackend.DockerAPI do
       "/doctest-workflow"
       iex> DockerAPI.stop_and_remove_container(id)
       :ok
+
   """
   require Logger
 
