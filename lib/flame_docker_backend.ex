@@ -18,6 +18,9 @@ defmodule FlameDockerBackend do
     # `PHX_SERVER=false` and `FLAME_PARENT` (with encoded parent info) env vars will be automatically added to this map.
     # `ERL_AFLAGS` and `ERL_ZFLAGS` will be copied from the Parent node and passed here too, if not explicitly defined.
     :env,
+    # Path to the Docker API Unix socket. This socket needs to be mounted into the Parent's docker container.
+    # If not provided, a default value based on the operating system will be used.
+    :docker_socket_path,
     # Are we running with Kamal 2?
     :is_kamal,
     # How long to wait for the Runner to boot, in milliseconds. Defaults to 30 seconds.
@@ -45,6 +48,7 @@ defmodule FlameDockerBackend do
           image: String.t(),
           network: String.t(),
           env: map() | nil,
+          docker_socket_path: String.t() | nil,
           is_kamal: bool | nil,
           boot_timeout: pos_integer(),
           runner_hostname_env: String.t() | nil,
@@ -52,7 +56,8 @@ defmodule FlameDockerBackend do
           parent_hostname: String.t() | nil,
           parent_ref: reference() | nil,
           runner_container_id: String.t() | nil,
-          remote_terminator_pid: pid() | nil
+          remote_terminator_pid: pid() | nil,
+          runner_node_name: node() | nil
         }
 
   @impl true
@@ -94,7 +99,8 @@ defmodule FlameDockerBackend do
   @impl true
   @spec remote_boot(t()) :: {:ok, pid(), t()} | {:error, any()}
   def remote_boot(%__MODULE__{parent_ref: parent_ref} = state) do
-    with {:ok, _version} <- DockerAPI.version(),
+    with {:ok, _httpc_profile_pid} <- DockerAPI.init(state.docker_socket_path),
+         {:ok, _version} <- DockerAPI.version(),
          {:ok, _events} <- DockerAPI.pull_image(%{"fromImage" => state.image}),
          {:ok, runner_container_id} <-
            DockerAPI.create_container(%{
@@ -102,7 +108,8 @@ defmodule FlameDockerBackend do
              "Image" => state.image,
              "Env" => state.env |> Map.to_list() |> Enum.map(fn {k, v} -> "\"#{k}=#{v}\"" end),
              "NetworkingConfig" => %{"EndpointsConfig" => %{state.network => %{}}}
-           }) do
+           }),
+         :ok <- DockerAPI.start_container(runner_container_id) do
       remote_terminator_pid =
         receive do
           {^parent_ref, {:remote_up, remote_terminator_pid}} ->

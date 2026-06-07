@@ -56,8 +56,9 @@ defmodule FlameDockerBackend.DockerAPI do
   Idempotent — safe to call when the profile is already running.
   Defaults to `#{@default_socket}`; on WSL2 use `/mnt/wsl/shared-docker/docker.sock`.
   """
-  @spec init(String.t()) :: {:ok, pid()} | {:error, any()}
-  def init(socket \\ @default_socket) do
+  @spec init(String.t() | nil) :: {:ok, pid()} | {:error, any()}
+  def init(socket \\ nil) do
+    socket = socket || default_socket_path()
     socket_cl = String.to_charlist(socket)
 
     with {:ok, _} <- Application.ensure_all_started(:inets) do
@@ -205,6 +206,25 @@ defmodule FlameDockerBackend.DockerAPI do
   end
 
   ## Helpers
+
+  @doc false
+  def default_socket_path() do
+    cond do
+      # WSL2 (mount point present)
+      File.exists?("/mnt/wsl/shared-docker/docker.sock") ->
+        "/mnt/wsl/shared-docker/docker.sock"
+
+      # macOS (Docker Desktop sometimes uses user home run dir)
+      System.get_env("HOME")
+      |> then(&Path.join([&1 || "", ".docker", "run", "docker.sock"]))
+      |> File.exists?() ->
+        Path.join(System.get_env("HOME"), ".docker/run/docker.sock")
+
+      # Default: Linux and Docker Desktop
+      true ->
+        "/var/run/docker.sock"
+    end
+  end
 
   @doc false
   def get(path) do
