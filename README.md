@@ -57,8 +57,6 @@ docker run -it --rm \
   --name minimal-parent \
   --network minimal_flame_docker_backend_test \
   -v /mnt/wsl/shared-docker/docker.sock:/var/run/docker.sock \
-  -e RELEASE_NODE=minimal@minimal-parent \
-  -e RELEASE_COOKIE=test_cookie \
   -e FLAME_IMAGE=minimal:latest \
   -e FLAME_NETWORK=minimal_flame_docker_backend_test \
   minimal:latest bin/minimal start_iex
@@ -68,6 +66,10 @@ Mount correct Docker socket location:
 
 - on Linux: `-v /var/run/docker.sock:/var/run/docker.sock`
 - on WSL2: `-v /mnt/wsl/shared-docker/docker.sock:/var/run/docker.sock`
+- on macOS: `-v ~/.docker/run/docker.sock:/var/run/docker.sock`
+
+Optionally, you can configure a nicer name for the parent node with the `-e RELEASE_NODE=minimal@minimal-parent`
+env var.
 
 **Test the FLAME backend in IEx:**
 
@@ -77,6 +79,19 @@ Minimal.test_flame_backend_lambda()
 
 # Or test manually:
 FLAME.call(Minimal.Runner, fn -> {node(), self()} end)
+
+# Execute many tasks, you can observe that we only spawning max number of containers specified in the FLAME.Pool
+# child spec:
+(for _ <- 1..10, do: Task.async(fn -> Minimal.test_flame_backend_lambda() end)) |> Task.await_many(120_000)
+```
+
+**Connect to the FLAME runner node:**
+
+```bash
+# find CONTAINER_ID of the node you want to connect to remotely:
+docker ps
+
+docker exec -it $CONTAINER_ID bin/minimal remote
 ```
 
 **Watch Docker activity** (in another terminal):

@@ -107,7 +107,7 @@ defmodule FlameDockerBackend do
              "Hostname" => state.runner_node_base,
              "name" => state.runner_node_base,
              "Image" => state.image,
-             "Env" => state.env |> Map.to_list() |> Enum.map(fn {k, v} -> "\"#{k}=#{v}\"" end),
+             "Env" => state.env |> Map.to_list() |> Enum.map(fn {k, v} -> "#{k}=#{v}" end),
              "NetworkingConfig" => %{"EndpointsConfig" => %{state.network => %{}}}
            }),
          :ok <- DockerAPI.start_container(runner_container_id) do

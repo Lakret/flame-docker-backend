@@ -45,7 +45,6 @@ defmodule FlameDockerBackend.DockerAPI do
   """
   require Logger
 
-  @default_socket "/var/run/docker.sock"
   @profile :flame_docker
   @docker_api_version "v1.45"
   @prefix "http://localhost/#{@docker_api_version}"
@@ -54,7 +53,6 @@ defmodule FlameDockerBackend.DockerAPI do
   Initializes the `:httpc` profile for Unix socket communication with Docker.
 
   Idempotent — safe to call when the profile is already running.
-  Defaults to `#{@default_socket}`; on WSL2 use `/mnt/wsl/shared-docker/docker.sock`.
   """
   @spec init(String.t() | nil) :: {:ok, pid()} | {:error, any()}
   def init(socket \\ nil) do
@@ -220,16 +218,16 @@ defmodule FlameDockerBackend.DockerAPI do
 
   @doc false
   def default_socket_path() do
+    mac_os_default_path = System.get_env("HOME") |> Path.join(".docker/run/docker.sock")
+
     cond do
       # WSL2 (mount point present)
       File.exists?("/mnt/wsl/shared-docker/docker.sock") ->
         "/mnt/wsl/shared-docker/docker.sock"
 
       # macOS (Docker Desktop sometimes uses user home run dir)
-      System.get_env("HOME")
-      |> then(&Path.join([&1 || "", ".docker", "run", "docker.sock"]))
-      |> File.exists?() ->
-        Path.join(System.get_env("HOME"), ".docker/run/docker.sock")
+      File.exists?(mac_os_default_path) ->
+        mac_os_default_path
 
       # Default: Linux and Docker Desktop
       true ->
