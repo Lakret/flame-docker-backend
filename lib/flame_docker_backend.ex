@@ -35,7 +35,9 @@ defmodule FlameDockerBackend do
     # Docker container_id of the Runner
     :runner_container_id,
     # PID of the remote Terminator process
-    :remote_terminator_pid
+    :remote_terminator_pid,
+    # Full Runner node name
+    :runner_node_name
   ]
 
   @type t() :: %__MODULE__{
@@ -111,9 +113,36 @@ defmodule FlameDockerBackend do
             exit(:timeout)
         end
 
-      state = %{state | runner_container_id: runner_container_id, remote_terminator_pid: remote_terminator_pid}
+      state = %{
+        state
+        | runner_container_id: runner_container_id,
+          remote_terminator_pid: remote_terminator_pid,
+          runner_node_name: node(remote_terminator_pid)
+      }
+
       {:ok, remote_terminator_pid, state}
     end
+  end
+
+  @impl true
+  @spec remote_spawn_monitor(t(), {atom(), atom(), list()} | (-> any())) :: {:ok, {pid(), reference()}}
+  def remote_spawn_monitor(state, func)
+
+  def remote_spawn_monitor(%__MODULE__{} = state, {mod, fun, args})
+      when is_atom(mod) and is_atom(fun) and is_list(args) do
+    {pid, ref} = Node.spawn_monitor(state.runner_node_name, mod, fun, args)
+    {:ok, {pid, ref}}
+  end
+
+  def remote_spawn_monitor(%__MODULE__{} = state, func) when is_function(func, 0) do
+    {pid, ref} = Node.spawn_monitor(state.runner_node_name, func)
+    {:ok, {pid, ref}}
+  end
+
+  @impl true
+  @spec system_shutdown() :: :ok
+  def system_shutdown() do
+    System.stop()
   end
 
   @doc false
