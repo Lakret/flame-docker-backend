@@ -1,0 +1,12 @@
+_build/
+deps/
+.git/
+.gitignore
+*.md
+doc/
+.elixir_ls/
+.vscode/
+.cursor/
+test_apps/*/deps/
+test_apps/*/_build/
+test_apps/*/.elixir_ls/

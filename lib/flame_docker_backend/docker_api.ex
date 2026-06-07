@@ -96,6 +96,17 @@ defmodule FlameDockerBackend.DockerAPI do
   end
 
   @doc """
+  Checks if an image exists locally.
+  """
+  @spec image_exists?(String.t()) :: boolean()
+  def image_exists?(image) when is_binary(image) do
+    case get("/images/#{URI.encode_www_form(image)}/json") do
+      {:ok, {{_, 200, _}, _, _}} -> true
+      _ -> false
+    end
+  end
+
+  @doc """
   Pulls `fromImage` from a registry.
 
   Accepts any `POST /images/create` query parameters as map keys;
@@ -103,7 +114,7 @@ defmodule FlameDockerBackend.DockerAPI do
   maps streamed by Docker during the pull.
   """
   @spec pull_image(map()) :: {:ok, [map()]} | {:error, any()}
-  def pull_image(%{"fromImage" => from_image} = params) do
+  def pull_image(%{"fromImage" => from_image} = params) when is_binary(from_image) do
     tag = Map.get(params, "tag", "latest")
 
     post("#{@prefix}/images/create?fromImage=#{URI.encode(from_image)}&tag=#{URI.encode(tag)}", nil)

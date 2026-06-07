@@ -101,9 +101,10 @@ defmodule FlameDockerBackend do
   def remote_boot(%__MODULE__{parent_ref: parent_ref} = state) do
     with {:ok, _httpc_profile_pid} <- DockerAPI.init(state.docker_socket_path),
          {:ok, _version} <- DockerAPI.version(),
-         {:ok, _events} <- DockerAPI.pull_image(%{"fromImage" => state.image}),
+         :ok <- maybe_pull_image(state.image),
          {:ok, runner_container_id} <-
            DockerAPI.create_container(%{
+             "Hostname" => state.runner_node_base,
              "name" => state.runner_node_base,
              "Image" => state.image,
              "Env" => state.env |> Map.to_list() |> Enum.map(fn {k, v} -> "\"#{k}=#{v}\"" end),
@@ -175,6 +176,21 @@ defmodule FlameDockerBackend do
       Map.put_new(env, "ERL_ZFLAGS", flags)
     else
       env
+    end
+  end
+
+  @spec maybe_pull_image(String.t()) :: :ok | {:error, any()}
+  defp maybe_pull_image(image) do
+    if DockerAPI.image_exists?(image) do
+      Logger.debug("Image #{image} already present, skipping pull")
+      :ok
+    else
+      Logger.info("Pulling image #{image}")
+
+      case DockerAPI.pull_image(%{"fromImage" => image}) do
+        {:ok, _events} -> :ok
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 end
