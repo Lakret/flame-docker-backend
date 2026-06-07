@@ -33,6 +33,5 @@ docker run $FLAGS --rm \
   --name minimal-parent \
   --network "$NETWORK_NAME" \
   -v "$DOCKER_SOCKET_PATH:/var/run/docker.sock" \
-  -e FLAME_IMAGE=minimal:latest \
   -e FLAME_NETWORK="$NETWORK_NAME" \
   minimal:latest $CMD

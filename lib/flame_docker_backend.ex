@@ -8,8 +8,10 @@ defmodule FlameDockerBackend do
   @behaviour FLAME.Backend
 
   defstruct [
+    # TODO: can this be inferred automatically?
     # Application name
     :app,
+    # TODO: can we capture this from the Docker API and set to the current image by default?
     # Docker image to use for runners
     :image,
     # Docker network to connect Parent with Runners
@@ -27,14 +29,18 @@ defmodule FlameDockerBackend do
     :boot_timeout,
     # Environment variable used to lookup Runner's node hostaname for node's longname. Defaults to "HOSTNAME".
     :runner_hostname_env,
+    ##
     ## Data setup during Runner's `init`
+    ##
     # Auto-generated runner container name / runner node basename (part of the node name before '@')
     :runner_node_base,
     # Auto-inferred Parent hostname
     :parent_hostname,
     # Auto-created Parent reference
     :parent_ref,
+    ##
     ## Data received on Runner's successful boot
+    ##
     # Docker container_id of the Runner
     :runner_container_id,
     # PID of the remote Terminator process
@@ -88,7 +94,8 @@ defmodule FlameDockerBackend do
       FLAME.Parent.new(parent_ref, self(), __MODULE__, state.runner_node_base, state.runner_hostname_env)
       |> FLAME.Parent.encode()
 
-    # TODO: do we need to do this here?
+    # TODO: do we need to do this here? it works without it, but maybe we should specify how to set Erlang Node name
+    # manually if something goes wrong, e.g.:
     # Set `ERL_FLAGS=--name <runner_node_base>@<container_name>` on the runner.
     env = %{"PHX_SERVER" => "false", "FLAME_PARENT" => encoded_parent} |> Map.merge(state.env) |> add_erl_flags()
 

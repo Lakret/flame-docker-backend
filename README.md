@@ -61,12 +61,15 @@ Optional arguments:
 docker build -t minimal:latest -f test_apps/minimal/Dockerfile .
 docker network create minimal_flame_docker_backend_test
 
+# `test_apps/minimal/config/runtime.exs` sets image and network.
+# To set dynamically, you can pass env vars here:
+#
+# -e FLAME_IMAGE=minimal:latest
+# -e FLAME_NETWORK=minimal_flame_docker_backend_test
 docker run -it --rm \
   --name minimal-parent \
   --network minimal_flame_docker_backend_test \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -e FLAME_IMAGE=minimal:latest \
-  -e FLAME_NETWORK=minimal_flame_docker_backend_test \
   minimal:latest bin/minimal start_iex
 ```
 

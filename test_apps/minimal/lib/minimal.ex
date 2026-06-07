@@ -9,8 +9,4 @@ defmodule Minimal do
       :rand.uniform()
     end)
   end
-
-  def test_flame_backend_mfa() do
-    FLAME.call(Minimal.Runner, {Minimal, :test_flame_backend_lambda, []})
-  end
 end
