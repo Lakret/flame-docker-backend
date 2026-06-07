@@ -2,6 +2,8 @@ defmodule FlameDockerBackend do
   @moduledoc """
   Docker-out-of-Docker backend for [FLAME](https://github.com/phoenixframework/flame).
   """
+  require Logger
+  alias FlameDockerBackend.DockerAPI
 
   @behaviour FLAME.Backend
 
@@ -18,20 +20,52 @@ defmodule FlameDockerBackend do
     :env,
     # Are we running with Kamal 2?
     :is_kamal,
+    # How long to wait for the Runner to boot, in milliseconds. Defaults to 30 seconds.
+    :boot_timeout,
     # Environment variable used to lookup Runner's node hostaname for node's longname. Defaults to "HOSTNAME".
     :runner_hostname_env,
+    ## Data setup during Runner's `init`
     # Auto-generated runner container name / runner node basename (part of the node name before '@')
     :runner_node_base,
     # Auto-inferred Parent hostname
     :parent_hostname,
     # Auto-created Parent reference
-    :parent_ref
+    :parent_ref,
+    ## Data received on Runner's successful boot
+    # Docker container_id of the Runner
+    :runner_container_id,
+    # PID of the remote Terminator process
+    :remote_terminator_pid
   ]
 
+  @type t() :: %__MODULE__{
+          app: String.t(),
+          image: String.t(),
+          network: String.t(),
+          env: map() | nil,
+          is_kamal: bool | nil,
+          boot_timeout: pos_integer(),
+          runner_hostname_env: String.t() | nil,
+          runner_node_base: String.t() | nil,
+          parent_hostname: String.t() | nil,
+          parent_ref: reference() | nil,
+          runner_container_id: String.t() | nil,
+          remote_terminator_pid: pid() | nil
+        }
+
   @impl true
+  @spec init(Keyword.t()) :: {:ok, t()}
   def init(opts) do
     [app, parent_hostname] = node() |> to_string() |> String.split("@")
-    default_opts = %__MODULE__{app: app, env: %{}, runner_hostname_env: "HOSTNAME", parent_hostname: parent_hostname}
+
+    default_opts = %__MODULE__{
+      app: app,
+      env: %{},
+      is_kamal: false,
+      boot_timeout: 30_000,
+      runner_hostname_env: "HOSTNAME",
+      parent_hostname: parent_hostname
+    }
 
     conf = Application.get_env(:flame, __MODULE__) || []
     # TODO: Keyword.validate! to make sure that we don't allow breaking the struct by passing non-existing fields
@@ -47,10 +81,39 @@ defmodule FlameDockerBackend do
       FLAME.Parent.new(parent_ref, self(), __MODULE__, state.runner_node_base, state.runner_hostname_env)
       |> FLAME.Parent.encode()
 
+    # TODO: do we need to do this here?
+    # Set `ERL_FLAGS=--name <runner_node_base>@<container_name>` on the runner.
     env = %{"PHX_SERVER" => "false", "FLAME_PARENT" => encoded_parent} |> Map.merge(state.env) |> add_erl_flags()
 
     state = %{state | env: env, parent_ref: parent_ref}
     {:ok, state}
+  end
+
+  @impl true
+  @spec remote_boot(t()) :: {:ok, pid(), t()} | {:error, any()}
+  def remote_boot(%__MODULE__{parent_ref: parent_ref} = state) do
+    with {:ok, _version} <- DockerAPI.version(),
+         {:ok, _events} <- DockerAPI.pull_image(%{"fromImage" => state.image}),
+         {:ok, runner_container_id} <-
+           DockerAPI.create_container(%{
+             "name" => state.runner_node_base,
+             "Image" => state.image,
+             "Env" => state.env |> Map.to_list() |> Enum.map(fn {k, v} -> "\"#{k}=#{v}\"" end),
+             "NetworkingConfig" => %{"EndpointsConfig" => %{state.network => %{}}}
+           }) do
+      remote_terminator_pid =
+        receive do
+          {^parent_ref, {:remote_up, remote_terminator_pid}} ->
+            remote_terminator_pid
+        after
+          state.boot_timeout ->
+            Logger.error("Didn't receive terminator pid from the Runner container after #{state.boot_timeout} ms.")
+            exit(:timeout)
+        end
+
+      state = %{state | runner_container_id: runner_container_id, remote_terminator_pid: remote_terminator_pid}
+      {:ok, remote_terminator_pid, state}
+    end
   end
 
   @doc false
