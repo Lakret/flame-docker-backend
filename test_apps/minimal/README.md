@@ -1,21 +1,43 @@
 # Minimal
 
-**TODO: Add description**
+Minimal app example of using FlameDockerBackend.
+The app does nothing useful - it just tests that `FLAME.call` with our backend succeeds.
+Since the backend is Docker-specific, this functionality only works when the app is running inside a Docker container.
 
-## Installation
+## FLAME + FlameDockerBackend Integration Steps
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `minimal` to your list of dependencies in `mix.exs`:
+To integrate FLAME with FlameDockerBackend, the default `mix phx.new --sup` skeleton was adopted like so:
 
-```elixir
-def deps do
-  [
-    {:minimal, "~> 0.1.0"}
-  ]
-end
-```
+- **Added [Mix dependencies](mix.exs).**
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/minimal>.
+  ```elixir
+  defp deps do
+    [
+      {:flame, "~> 0.5"},
+      {:flame_docker_backend, path: "../../"}
+    ]
+  end
+  ```
 
+- **Added `FLAME.Pool` child to the [application supervisor](`./lib/minimal/application.ex`)**
+
+  ```elixir
+  @impl true
+  def start(_type, _args) do
+    children = [
+      {FLAME.Pool, name: Minimal.Runner, backend: FlameDockerBackend, min: 0, max: 2, idle_shutdown_after: 30_000}
+    ]
+
+    ...
+  end
+  ```
+
+- **Added default configs.** See [./config/config.exs](test_apps/minimal/config/config.exs)
+and [./config/runtime.exs](test_apps/minimal/config/runtime.exs).
+
+- **Added [Dockerfile](test_apps/minimal/Dockerfile).**
+
+## Trying it Out
+
+To see it in action, try `./scripts/minimal/01_run.sh` from the repo's root.
+Cleanup with `./scripts/minimal/02_run.sh`.
