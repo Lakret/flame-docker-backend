@@ -11,14 +11,16 @@ if [ -z "$CMD" ]; then
   fi
 fi
 
-DOCKER_SOCKET_PATH=/var/run/docker.sock
 WSL_DOCKER_SOCKET_PATH=/mnt/wsl/shared-docker/docker.sock
 MACOS_DOCKER_SOCKET_PATH=/Users/$(whoami)/.docker/run/docker.sock
-if [ -f "$WSL_DOCKER_SOCKET_PATH" ]; then
+if [ -S "$WSL_DOCKER_SOCKET_PATH" ]; then
   DOCKER_SOCKET_PATH=$WSL_DOCKER_SOCKET_PATH
-elif [ -f "$MACOS_DOCKER_SOCKET_PATH" ]; then
+elif [ -S "$MACOS_DOCKER_SOCKET_PATH" ]; then
   DOCKER_SOCKET_PATH=$MACOS_DOCKER_SOCKET_PATH
+else
+  DOCKER_SOCKET_PATH=/var/run/docker.sock
 fi
+echo "Using Docker socket at: $DOCKER_SOCKET_PATH."
 
 NETWORK_NAME=minimal_flame_docker_backend_test
 docker network rm -f "$NETWORK_NAME"
