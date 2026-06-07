@@ -24,7 +24,8 @@ Stay in fun-mode for the rest of the session unless the user opts out.
 ### 1. Minimal structure
 
 - Create only the files and modules the task needs — empty or nearly empty
-- Add `@moduledoc` with **implementation hints** (see below)
+- Add `@moduledoc` with **implementation hints** (see below) and
+a doctest showing a workflow of using the module if applicable.
 - Wire deps, application children, and config entries
 - Do **not** add function signatures, typespecs, or stubs unless the user asks
 
@@ -61,6 +62,7 @@ comments. Cover:
 - Integration points (supervision tree, router, backend callbacks, etc.)
 - Dependencies already added and why
 - Suggested verify command (`mix test ...`, `iex -S mix`, etc.)
+- A doctest showing an example workflow of using the module
 
 Keep moduledoc scannable: short sections, bullet lists, no full implementations.
 
