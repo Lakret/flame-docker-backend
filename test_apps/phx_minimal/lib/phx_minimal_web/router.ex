@@ -17,7 +17,7 @@ defmodule PhxMinimalWeb.Router do
   scope "/", PhxMinimalWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", FlameDemoLive
   end
 
   # Other scopes may use custom stacks.

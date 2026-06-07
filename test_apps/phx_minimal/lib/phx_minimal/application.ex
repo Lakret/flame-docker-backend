@@ -8,6 +8,8 @@ defmodule PhxMinimal.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      {FLAME.Pool,
+       name: PhxMinimal.Runner, backend: FlameDockerBackend, min: 0, max: 2, idle_shutdown_after: 30_000},
       PhxMinimalWeb.Telemetry,
       PhxMinimal.Repo,
       {Ecto.Migrator,

@@ -1,9 +1,25 @@
 defmodule PhxMinimal do
   @moduledoc """
-  PhxMinimal keeps the contexts that define your domain
-  and business logic.
-
-  Contexts are also responsible for managing your data, regardless
-  if it comes from the database, an external API or others.
+  Phoenix app showcasing FLAME with FlameDockerBackend.
   """
+
+  @type flame_color_result :: %{
+          color: String.t(),
+          node: node()
+        }
+
+  @spec spawn_flame_color() :: flame_color_result()
+  def spawn_flame_color() do
+    FLAME.call(PhxMinimal.Runner, fn ->
+      Process.sleep(2_000)
+
+      color =
+        :rand.uniform(0xFFFFFF)
+        |> Integer.to_string(16)
+        |> String.pad_leading(6, "0")
+        |> then(&("#" <> &1))
+
+      %{color: color, node: node()}
+    end)
+  end
 end
