@@ -6,9 +6,10 @@ defmodule PhxMinimal.Colors do
 
   @spec list_flame_colors() :: [FlameColor.t()]
   def list_flame_colors() do
-    FlameColor
-    |> order_by([c], desc: c.inserted_at)
-    |> limit(50)
+    from(c in FlameColor,
+      order_by: [desc: c.inserted_at],
+      limit: 50
+    )
     |> Repo.all()
   end
 
