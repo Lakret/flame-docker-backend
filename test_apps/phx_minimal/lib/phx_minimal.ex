@@ -2,6 +2,7 @@ defmodule PhxMinimal do
   @moduledoc """
   Phoenix app showcasing FLAME with FlameDockerBackend.
   """
+  alias PhxMinimal.Colors
 
   @type flame_color_result :: %{
           color: String.t(),
