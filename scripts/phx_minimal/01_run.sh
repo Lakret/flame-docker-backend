@@ -29,5 +29,6 @@ docker run $FLAGS --rm \
   --network "$NETWORK_NAME" \
   -p 4000:4000 \
   -v "$DOCKER_SOCKET_PATH:/var/run/docker.sock" \
+  -e PHX_SERVER=true \
   -e SECRET_KEY_BASE=yU6FuZbC4EGZtSSR39kyGBPzG5S3XubPjhj+Har5+wsnogPrt+zg4zED8p02qINt \
   phx_minimal:latest bin/phx_minimal start_iex

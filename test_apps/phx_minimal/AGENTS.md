@@ -2,6 +2,12 @@ This is a web application written using the Phoenix web framework.
 
 ## Project guidelines
 
+### test_apps README files
+
+When updating `README.md` in `test_apps/*`, keep the **FLAME + FlameDockerBackend Integration Steps** chapter limited to generic integration work only: Mix deps, `FLAME.Pool` in the application supervisor, FlameDockerBackend config, and Dockerfile.
+
+**Never** document demo-specific implementation details in that chapter — no LiveView modules, schemas, `FLAME.call` vs `FLAME.cast`, UI behavior, database tables, or other features that exist only to showcase the app. Put those in the intro, **Trying it Out**, or **Production** sections instead.
+
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues
 - Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
 

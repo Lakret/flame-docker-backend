@@ -55,7 +55,6 @@ RUN apk add --no-cache libstdc++ ncurses-libs openssl
 WORKDIR /app
 
 ENV MIX_ENV=prod
-ENV PHX_SERVER=true
 ENV PORT=4000
 ENV DATABASE_PATH=/app/phx_minimal.db
 

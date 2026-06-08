@@ -1,7 +1,7 @@
 # PhxMinimal
 
 Phoenix app example of using FlameDockerBackend.
-The app serves a simple LiveView UI that spawns a FLAME task on a remote Docker runner and visualizes the random color the runner returns.
+The app serves a simple LiveView UI that runs FLAME tasks on remote Docker runners, saves the returned colors to the database, and visualizes them.
 Since the backend is Docker-specific, remote FLAME tasks only work when the app is running inside a Docker container.
 
 ## FLAME + FlameDockerBackend Integration Steps
@@ -51,18 +51,11 @@ To integrate FLAME with FlameDockerBackend, the default `mix phx.new --sup` skel
   end
   ```
 
-- **Added [PhxMinimal.spawn_flame_color/0](./lib/phx_minimal.ex)** — calls `FLAME.call/2` to run a function on a remote runner that sleeps briefly, picks a random hex color, and returns it with the runner node name.
-
-- **Added [FlameDemoLive](./lib/phx_minimal_web/live/flame_demo_live.ex)** — replaces the default landing page. Clicking "Spawn FLAME task" runs `spawn_flame_color/0` via `start_async/3`, fills a color panel with the result, tints the button, and keeps a swatch history.
-
-- **Updated [router](./lib/phx_minimal_web/router.ex)** — `live "/", FlameDemoLive` instead of the default `PageController` home action.
-
-- **Added [`compile` to the `assets.deploy` alias](./mix.exs)** — Phoenix 1.8 colocated JS hooks are generated at compile time; esbuild needs them before bundling.
-
-- **Tuned [prod `runtime.exs`](./config/runtime.exs) for local Docker and FLAME runners:**
-  - The default `phx.new` prod URL is `https://example.com:443`, which makes Phoenix reject LiveView socket origins from `http://localhost:4000`. Defaults are now `PHX_HOST=localhost`, `PORT=4000`, `PHX_URL_SCHEME=http`.
-
-- **Added [Dockerfile](./Dockerfile)** — layer order follows the [Phoenix containers guide](https://phoenix.hexdocs.pm/releases.html#containers) so deps, tailwind/esbuild setup, and compilation stay cached when only app code or assets change.
+- **Added [Dockerfile](./Dockerfile)** — layer order follows the
+[Phoenix containers guide](https://phoenix.hexdocs.pm/releases.html#containers) so deps,
+tailwind/esbuild setup, and compilation stay cached when only app code or assets change.
+Also note, that we explicitly removed `ENV PHX_SERVER=true` part from it - since we want to re-use the same
+image for the runner, we shouldn't force server start.
 
 ## Trying it Out
 
