@@ -20,15 +20,15 @@ if System.get_env("PHX_SERVER") do
   config :phx_minimal, PhxMinimalWeb.Endpoint, server: true
 end
 
-config :phx_minimal, PhxMinimalWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+config :phx_minimal, PhxMinimalWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 if config_env() in [:prod, :dev] do
   config :flame, :backend, FlameDockerBackend
 
   config :flame, FlameDockerBackend,
     image: System.get_env("FLAME_IMAGE", "phx_minimal:latest"),
-    network: System.get_env("FLAME_NETWORK", "phx_minimal_flame_docker_backend_test")
+    network: System.get_env("FLAME_NETWORK", "phx_minimal_flame_docker_backend_test"),
+    env: %{"SECRET_KEY_BASE" => System.get_env("SECRET_KEY_BASE")}
 end
 
 if config_env() == :prod do

@@ -25,7 +25,12 @@ To integrate FLAME with FlameDockerBackend, the default `mix phx.new --sup` skel
   @impl true
   def start(_type, _args) do
     children = [
-      {FLAME.Pool, name: PhxMinimal.Runner, backend: FlameDockerBackend, min: 0, max: 2, idle_shutdown_after: 30_000},
+      {FLAME.Pool,
+       name: PhxMinimal.Runner,
+       backend: FlameDockerBackend,
+       min: 0,
+       max: 2,
+       idle_shutdown_after: 30_000},
       ...
     ]
 
@@ -33,7 +38,18 @@ To integrate FLAME with FlameDockerBackend, the default `mix phx.new --sup` skel
   end
   ```
 
-- **Added default configs.** See [./config/runtime.exs](./config/runtime.exs).
+- **Added default configs.** See [./config/runtime.exs](./config/runtime.exs):
+
+  ```elixir
+  if config_env() in [:prod, :dev] do
+    config :flame, :backend, FlameDockerBackend
+
+    config :flame, FlameDockerBackend,
+      image: System.get_env("FLAME_IMAGE", "phx_minimal:latest"),
+      network: System.get_env("FLAME_NETWORK", "phx_minimal_flame_docker_backend_test"),
+      env: %{"SECRET_KEY_BASE" => System.get_env("SECRET_KEY_BASE")}
+  end
+  ```
 
 - **Added [PhxMinimal.spawn_flame_color/0](./lib/phx_minimal.ex)** — calls `FLAME.call/2` to run a function on a remote runner that sleeps briefly, picks a random hex color, and returns it with the runner node name.
 
@@ -43,7 +59,8 @@ To integrate FLAME with FlameDockerBackend, the default `mix phx.new --sup` skel
 
 - **Added [`compile` to the `assets.deploy` alias](./mix.exs)** — Phoenix 1.8 colocated JS hooks are generated at compile time; esbuild needs them before bundling.
 
-- **Tuned [prod `runtime.exs`](./config/runtime.exs) for local Docker** — the default `phx.new` prod URL is `https://example.com:443`, which makes Phoenix reject LiveView socket origins from `http://localhost:4000`. Defaults are now `PHX_HOST=localhost`, `PORT=4000`, `PHX_URL_SCHEME=http`.
+- **Tuned [prod `runtime.exs`](./config/runtime.exs) for local Docker and FLAME runners:**
+  - The default `phx.new` prod URL is `https://example.com:443`, which makes Phoenix reject LiveView socket origins from `http://localhost:4000`. Defaults are now `PHX_HOST=localhost`, `PORT=4000`, `PHX_URL_SCHEME=http`.
 
 - **Added [Dockerfile](./Dockerfile)** — layer order follows the [Phoenix containers guide](https://phoenix.hexdocs.pm/releases.html#containers) so deps, tailwind/esbuild setup, and compilation stay cached when only app code or assets change.
 
