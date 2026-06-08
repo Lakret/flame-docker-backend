@@ -1,29 +1,27 @@
 defmodule PhxMinimal.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
-
   use Application
 
   @impl true
   def start(_type, _args) do
     children = [
-      {FLAME.Pool,
-       name: PhxMinimal.Runner, backend: FlameDockerBackend, min: 0, max: 2, idle_shutdown_after: 30_000},
+      {
+        FLAME.Pool,
+        name: PhxMinimal.Runner,
+        backend: FlameDockerBackend,
+        min: 0,
+        max: 2,
+        idle_shutdown_after: 30_000,
+        boot_timeout: 5_000
+      },
       PhxMinimalWeb.Telemetry,
       PhxMinimal.Repo,
-      {Ecto.Migrator,
-       repos: Application.fetch_env!(:phx_minimal, :ecto_repos), skip: skip_migrations?()},
+      {Ecto.Migrator, repos: Application.fetch_env!(:phx_minimal, :ecto_repos), skip: skip_migrations?()},
       {DNSCluster, query: Application.get_env(:phx_minimal, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PhxMinimal.PubSub},
-      # Start a worker by calling: PhxMinimal.Worker.start_link(arg)
-      # {PhxMinimal.Worker, arg},
-      # Start to serve requests, typically the last entry
       PhxMinimalWeb.Endpoint
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: PhxMinimal.Supervisor]
     Supervisor.start_link(children, opts)
   end

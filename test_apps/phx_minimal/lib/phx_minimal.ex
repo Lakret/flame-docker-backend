@@ -11,7 +11,7 @@ defmodule PhxMinimal do
   @spec spawn_flame_color() :: flame_color_result()
   def spawn_flame_color() do
     FLAME.call(PhxMinimal.Runner, fn ->
-      Process.sleep(2_000)
+      Process.sleep(1_000)
 
       color =
         :rand.uniform(0xFFFFFF)

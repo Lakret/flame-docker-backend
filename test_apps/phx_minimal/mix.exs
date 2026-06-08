@@ -83,6 +83,7 @@ defmodule PhxMinimal.MixProject do
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind phx_minimal", "esbuild phx_minimal"],
       "assets.deploy": [
+        "compile",
         "tailwind phx_minimal --minify",
         "esbuild phx_minimal --minify",
         "phx.digest"
