@@ -59,12 +59,33 @@ Then add a `FLAME.Pool` to your application supervisor:
 **Optional options:**
 - `:boot_timeout` — Milliseconds to wait for a runner to connect back (default: `30_000`)
 - `:docker_socket_path` — Path to the Docker socket (auto-detected if omitted)
-- `:env` — Additional environment variables to set on runner containers
+- `:env` — Additional environment variables to set on runner containers (`PHX_SERVER` may be overridden; `FLAME_PARENT` may not)
 - `:host_config` — Docker `HostConfig` map (resource limits, binds, etc.)
 - `:mounts` — Docker `Mounts` list (bind mounts, volumes, tmpfs)
 - `:cmd` — Docker `Cmd` override (list of strings)
+- `:keep_runners` — When `true`, leave exited runner containers for log inspection (default: `false`, containers are removed)
 
 See [Available configurations](#available-configurations) for examples.
+
+## Parent deployment
+
+The parent must run as a **distributed release** on a **user-defined Docker network** with:
+
+1. **Docker socket mounted** — `-v /var/run/docker.sock:/var/run/docker.sock` (or your platform path)
+2. **Stable container name** — `--name my-app-parent` so Docker DNS matches the Erlang node hostname
+3. **Same network as runners** — `--network my_network` (must match `:network` config)
+4. **Shared cookie** — set `RELEASE_COOKIE` on the parent; it is forwarded to runners automatically
+
+Example:
+
+```bash
+docker run --rm \
+  --name my-app-parent \
+  --network my_network \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e RELEASE_COOKIE=my-secret-cookie \
+  my-app:latest
+```
 
 **Docker socket paths by platform:**
 
@@ -149,8 +170,6 @@ config :flame, FlameDockerBackend,
 Pool-level `backend` options override application config. Wiring fields
 (`Hostname`, `NetworkingConfig`, `FLAME_PARENT`, etc.) are always set by the
 backend and cannot be overridden.
-
-
 
 ## Testing
 

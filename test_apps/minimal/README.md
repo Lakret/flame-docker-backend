@@ -40,4 +40,4 @@ and [./config/runtime.exs](test_apps/minimal/config/runtime.exs).
 ## Trying it Out
 
 To see it in action, try `./scripts/minimal/01_run.sh` from the repo's root.
-Cleanup with `./scripts/minimal/02_run.sh`.
+Cleanup with `./scripts/minimal/02_cleanup.sh`.

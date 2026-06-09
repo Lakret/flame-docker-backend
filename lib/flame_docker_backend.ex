@@ -1,11 +1,55 @@
 defmodule FlameDockerBackend do
   @moduledoc """
   Docker-out-of-Docker backend for [FLAME](https://github.com/phoenixframework/flame).
+
+  The parent runs inside a container and provisions runners via the Docker Engine API
+  through a mounted socket. Runners join the same user-defined network as the parent.
+
+  ## Required configuration
+
+      config :flame, FlameDockerBackend,
+        image: "my-app:latest",
+        network: "my_network"
+
+  The parent container must use a distributed release, a stable `--name` on the Docker
+  network, and the Docker socket mounted. See the project README for deployment details.
+
+  ## Optional configuration
+
+    * `:env` — extra runner env vars (`PHX_SERVER` may be overridden; `FLAME_PARENT` may not)
+    * `:host_config`, `:mounts`, `:cmd` — Docker create payload passthrough
+    * `:docker_socket_path` — path to the Docker socket (auto-detected when omitted)
+    * `:boot_timeout` — boot wait in ms (default `30_000`)
+    * `:keep_runners` — when `true`, leave runner containers after exit for log inspection
+      (default `false`, containers are removed)
+    * `:runner_hostname_env` — env var for runner hostname (default `"HOSTNAME"`)
+    * `:parent_hostname` — override parent Erlang hostname (defaults to current node host)
+
+  Per-pool overrides:
+
+      {FLAME.Pool, name: MyRunner, backend: {FlameDockerBackend, image: "...", network: "..."}}
   """
   require Logger
   alias FlameDockerBackend.DockerAPI
 
   @behaviour FLAME.Backend
+
+  @config_keys [
+    :image,
+    :network,
+    :env,
+    :host_config,
+    :mounts,
+    :cmd,
+    :docker_socket_path,
+    :keep_runners,
+    :boot_timeout,
+    :runner_hostname_env,
+    :parent_hostname,
+    # auto-injected by FLAME
+    :terminator_sup,
+    :log
+  ]
 
   defstruct [
     # TODO: can this be inferred automatically?
@@ -30,7 +74,7 @@ defmodule FlameDockerBackend do
     # If not provided, a default value based on the operating system will be used.
     :docker_socket_path,
     # Debug option for not removing failed Runner containers.
-    :keep_failed_runners,
+    :keep_runners,
     # How long to wait for the Runner to boot, in milliseconds. Defaults to 30 seconds.
     :boot_timeout,
     # Environment variable used to lookup Runner's node hostaname for node's longname. Defaults to "HOSTNAME".
@@ -59,16 +103,16 @@ defmodule FlameDockerBackend do
           app: String.t(),
           image: String.t(),
           network: String.t(),
-          env: map() | nil,
+          env: map(),
           host_config: map() | nil,
           mounts: list() | nil,
           cmd: [String.t()] | nil,
           docker_socket_path: String.t() | nil,
-          keep_failed_runners: bool() | nil,
+          keep_runners: boolean(),
           boot_timeout: pos_integer(),
-          runner_hostname_env: String.t() | nil,
+          runner_hostname_env: String.t(),
           runner_node_base: String.t() | nil,
-          parent_hostname: String.t() | nil,
+          parent_hostname: String.t(),
           parent_ref: reference() | nil,
           runner_container_id: String.t() | nil,
           remote_terminator_pid: pid() | nil,
@@ -76,40 +120,42 @@ defmodule FlameDockerBackend do
         }
 
   @impl true
-  @spec init(Keyword.t()) :: {:ok, t()}
+  @spec init(Keyword.t()) :: {:ok, t()} | {:error, any()}
   def init(opts) do
     [app, parent_hostname] = node() |> to_string() |> String.split("@")
 
-    default_opts = %__MODULE__{
-      app: app,
-      env: %{},
-      keep_failed_runners: false,
-      boot_timeout: 30_000,
-      runner_hostname_env: "HOSTNAME",
-      parent_hostname: parent_hostname
-    }
-
     conf = Application.get_env(:flame, __MODULE__) || []
-    # TODO: Keyword.validate! to make sure that we don't allow breaking the struct by passing non-existing fields
-    opts = Keyword.merge(conf, opts) |> Map.new()
-    state = Map.merge(default_opts, opts)
 
-    runner_node_base = "#{state.app}-flame-#{rand_id(20)}"
-    state = %{state | runner_node_base: runner_node_base}
+    with {:ok, opts} <- Keyword.merge(conf, opts) |> Keyword.validate(@config_keys) do
+      default_opts = %__MODULE__{
+        app: app,
+        env: %{},
+        keep_runners: false,
+        boot_timeout: 30_000,
+        runner_hostname_env: "HOSTNAME",
+        parent_hostname: parent_hostname
+      }
 
-    parent_ref = make_ref()
+      opts = opts |> Map.new()
+      state = Map.merge(default_opts, opts)
 
-    encoded_parent =
-      FLAME.Parent.new(parent_ref, self(), __MODULE__, state.runner_node_base, state.runner_hostname_env)
-      |> FLAME.Parent.encode()
+      runner_node_base = "#{state.app}-flame-#{rand_id(20)}"
+      state = %{state | runner_node_base: runner_node_base}
 
-    # TODO: do we need to do this here? it works without it, but maybe we should specify how to set Erlang Node name
-    # manually if something goes wrong, e.g.:
-    # Set `ERL_FLAGS=--name <runner_node_base>@<container_name>` on the runner.
-    env = %{"PHX_SERVER" => "false", "FLAME_PARENT" => encoded_parent} |> Map.merge(state.env) |> add_erl_flags()
+      parent_ref = make_ref()
 
-    state = %{state | env: env, parent_ref: parent_ref}
-    {:ok, state}
+      encoded_parent =
+        FLAME.Parent.new(parent_ref, self(), __MODULE__, state.runner_node_base, state.runner_hostname_env)
+        |> FLAME.Parent.encode()
+
+      # TODO: do we need to do this here? it works without it, but maybe we should specify how to set Erlang Node name
+      # manually if something goes wrong, e.g.:
+      # Set `ERL_FLAGS=--name <runner_node_base>@<container_name>` on the runner.
+      env = %{"PHX_SERVER" => "false", "FLAME_PARENT" => encoded_parent} |> Map.merge(state.env) |> add_erl_flags()
+
+      state = %{state | env: env, parent_ref: parent_ref}
+      {:ok, state}
+    end
   end
 
   @impl true
@@ -134,7 +180,7 @@ defmodule FlameDockerBackend do
         state.boot_timeout ->
           Logger.error("Didn't receive terminator pid from the Runner container after #{state.boot_timeout} ms.")
 
-          if not state.keep_failed_runners do
+          if not state.keep_runners do
             result = DockerAPI.stop_and_remove_container(runner_container_id)
             Logger.info("Removal of failed Runner via Docker API: #{inspect(result)}.")
           end
