@@ -176,8 +176,6 @@ defmodule FlameDockerBackend do
   @impl true
   @spec remote_boot(t()) :: {:ok, pid(), t()} | {:error, any()}
   def remote_boot(%__MODULE__{parent_ref: parent_ref} = state) do
-    runner_pid = self()
-
     with {:ok, _httpc_profile_pid} <- DockerAPI.init(state.docker_socket_path),
          {:ok, _version} <- DockerAPI.version(),
          :ok <- maybe_pull_image(state.image),
@@ -187,6 +185,8 @@ defmodule FlameDockerBackend do
           receive do
             {^parent_ref, {:remote_up, remote_terminator_pid}} ->
               unless state.keep_runners do
+                runner_pid = self()
+
                 spawn(fn ->
                   ref = Process.monitor(runner_pid)
 
@@ -195,7 +195,7 @@ defmodule FlameDockerBackend do
                   end
 
                   result = DockerAPI.stop_and_remove_container(runner_container_id)
-                  Logger.info("Removal of Runner via Docker API: #{inspect(result)}.")
+                  Logger.debug("Removal of Runner via Docker API: #{inspect(result)}.")
                 end)
               end
 
@@ -213,7 +213,7 @@ defmodule FlameDockerBackend do
 
               unless state.keep_runners do
                 result = DockerAPI.stop_and_remove_container(runner_container_id)
-                Logger.info("Removal of failed Runner via Docker API: #{inspect(result)}.")
+                Logger.debug("Removal of failed Runner via Docker API: #{inspect(result)}.")
               end
 
               {:error, :timeout}
@@ -222,7 +222,7 @@ defmodule FlameDockerBackend do
         {:error, _} = error ->
           unless state.keep_runners do
             result = DockerAPI.stop_and_remove_container(runner_container_id)
-            Logger.info("Removal of failed Runner via Docker API: #{inspect(result)}.")
+            Logger.debug("Removal of failed Runner via Docker API: #{inspect(result)}.")
           end
 
           error
