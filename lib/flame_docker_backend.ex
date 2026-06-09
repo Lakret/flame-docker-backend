@@ -73,7 +73,7 @@ defmodule FlameDockerBackend do
     # Path to the Docker API Unix socket. This socket needs to be mounted into the Parent's docker container.
     # If not provided, a default value based on the operating system will be used.
     :docker_socket_path,
-    # Debug option for not removing failed Runner containers.
+    # When true, leave exited runner containers for log inspection.
     :keep_runners,
     # How long to wait for the Runner to boot, in milliseconds. Defaults to 30 seconds.
     :boot_timeout,
@@ -126,7 +126,18 @@ defmodule FlameDockerBackend do
 
     conf = Application.get_env(:flame, __MODULE__) || []
 
-    with {:ok, opts} <- Keyword.merge(conf, opts) |> Keyword.validate(@config_keys) do
+    with {:ok, opts} <- Keyword.merge(conf, opts) |> Keyword.validate(@config_keys),
+         # TODO: make this nicer
+         :ok <-
+           (case Keyword.get(opts, :image) do
+              image when is_binary(image) and image != "" -> :ok
+              _ -> {:error, {:missing_config, :image}}
+            end),
+         :ok <-
+           (case Keyword.get(opts, :network) do
+              network when is_binary(network) and network != "" -> :ok
+              _ -> {:error, {:missing_config, :network}}
+            end) do
       default_opts = %__MODULE__{
         app: app,
         env: %{},
@@ -148,10 +159,14 @@ defmodule FlameDockerBackend do
         FLAME.Parent.new(parent_ref, self(), __MODULE__, state.runner_node_base, state.runner_hostname_env)
         |> FLAME.Parent.encode()
 
-      # TODO: do we need to do this here? it works without it, but maybe we should specify how to set Erlang Node name
-      # manually if something goes wrong, e.g.:
-      # Set `ERL_FLAGS=--name <runner_node_base>@<container_name>` on the runner.
-      env = %{"PHX_SERVER" => "false", "FLAME_PARENT" => encoded_parent} |> Map.merge(state.env) |> add_erl_flags()
+      env =
+        state.env
+        |> Map.put("FLAME_PARENT", encoded_parent)
+        |> Map.put_new("PHX_SERVER", "false")
+        |> then(fn e ->
+          if cookie = System.get_env("RELEASE_COOKIE"), do: Map.put_new(e, "RELEASE_COOKIE", cookie), else: e
+        end)
+        |> add_erl_flags()
 
       state = %{state | env: env, parent_ref: parent_ref}
       {:ok, state}
@@ -161,31 +176,56 @@ defmodule FlameDockerBackend do
   @impl true
   @spec remote_boot(t()) :: {:ok, pid(), t()} | {:error, any()}
   def remote_boot(%__MODULE__{parent_ref: parent_ref} = state) do
+    runner_pid = self()
+
     with {:ok, _httpc_profile_pid} <- DockerAPI.init(state.docker_socket_path),
          {:ok, _version} <- DockerAPI.version(),
          :ok <- maybe_pull_image(state.image),
-         {:ok, runner_container_id} <- DockerAPI.create_container(build_create_body(state)),
-         :ok <- DockerAPI.start_container(runner_container_id) do
-      receive do
-        {^parent_ref, {:remote_up, remote_terminator_pid}} ->
-          state = %{
-            state
-            | runner_container_id: runner_container_id,
-              remote_terminator_pid: remote_terminator_pid,
-              runner_node_name: node(remote_terminator_pid)
-          }
+         {:ok, runner_container_id} <- DockerAPI.create_container(build_create_body(state)) do
+      case DockerAPI.start_container(runner_container_id) do
+        :ok ->
+          receive do
+            {^parent_ref, {:remote_up, remote_terminator_pid}} ->
+              unless state.keep_runners do
+                spawn(fn ->
+                  ref = Process.monitor(runner_pid)
 
-          {:ok, remote_terminator_pid, state}
-      after
-        state.boot_timeout ->
-          Logger.error("Didn't receive terminator pid from the Runner container after #{state.boot_timeout} ms.")
+                  receive do
+                    {:DOWN, ^ref, :process, _, _} -> :ok
+                  end
 
-          if not state.keep_runners do
+                  result = DockerAPI.stop_and_remove_container(runner_container_id)
+                  Logger.info("Removal of Runner via Docker API: #{inspect(result)}.")
+                end)
+              end
+
+              state = %{
+                state
+                | runner_container_id: runner_container_id,
+                  remote_terminator_pid: remote_terminator_pid,
+                  runner_node_name: node(remote_terminator_pid)
+              }
+
+              {:ok, remote_terminator_pid, state}
+          after
+            state.boot_timeout ->
+              Logger.error("Didn't receive terminator pid from the Runner container after #{state.boot_timeout} ms.")
+
+              unless state.keep_runners do
+                result = DockerAPI.stop_and_remove_container(runner_container_id)
+                Logger.info("Removal of failed Runner via Docker API: #{inspect(result)}.")
+              end
+
+              {:error, :timeout}
+          end
+
+        {:error, _} = error ->
+          unless state.keep_runners do
             result = DockerAPI.stop_and_remove_container(runner_container_id)
             Logger.info("Removal of failed Runner via Docker API: #{inspect(result)}.")
           end
 
-          {:error, :timeout}
+          error
       end
     end
   end
@@ -246,14 +286,12 @@ defmodule FlameDockerBackend do
       "Env" => state.env |> Map.to_list() |> Enum.map(fn {k, v} -> "#{k}=#{v}" end),
       "NetworkingConfig" => %{"EndpointsConfig" => %{state.network => %{}}}
     }
-    |> maybe_put_create_field("HostConfig", state.host_config)
-    |> maybe_put_create_field("Cmd", state.cmd)
-    |> maybe_put_create_field("Mounts", state.mounts)
+    |> then(fn body ->
+      if state.host_config, do: Map.put(body, "HostConfig", state.host_config), else: body
+    end)
+    |> then(fn body -> if state.cmd, do: Map.put(body, "Cmd", state.cmd), else: body end)
+    |> then(fn body -> if state.mounts, do: Map.put(body, "Mounts", state.mounts), else: body end)
   end
-
-  @spec maybe_put_create_field(map(), String.t(), term()) :: map()
-  defp maybe_put_create_field(body, _key, nil), do: body
-  defp maybe_put_create_field(body, key, value), do: Map.put(body, key, value)
 
   @spec maybe_pull_image(String.t()) :: :ok | {:error, any()}
   defp maybe_pull_image(image) do
