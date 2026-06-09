@@ -72,21 +72,7 @@ inspection, entrypoint wrappers, or post-start env injection.
 
 ### Network configuration
 
-`:network` is **required** unless `kamal: true` is set (which defaults it to
-`"kamal"`). `init/1` fails validation if neither is provided.
-
-For apps deployed with **Kamal 2**, set `kamal: true` (or `network: "kamal"` directly).
-Kamal 2 creates and attaches all app containers to a user-defined network named
-`kamal`, which provides the same container-name DNS we rely on. See
-[Kamal network changes](https://kamal-deploy.org/docs/upgrading/network-changes/).
-
-When `kamal: true`:
-- Default `:network` to `"kamal"` (explicit `:network` still wins).
-- Document Kamal-specific setup: the parent web container should expose a
-  **stable network alias** via `options.network-alias` in `deploy.yml` so
-  `FLAME_PARENT` and the parent's own `--name` stay consistent across deploys
-  (Kamal's default web container name includes a git commit hash and changes
-  every deploy).
+`:network` is **required**. `init/1` fails validation if it is not provided.
 
 ### Node naming
 
@@ -98,8 +84,6 @@ Both parent and runner use container names as Erlang node hostnames:
 
 - **Parent:** resolve its container name on the configured network once in
   `init/1` (Docker API inspect of self, or `:parent_hostname` override).
-  For Kamal, prefer a stable `network-alias` and set `:parent_hostname` to
-  match it.
 - **Runner:** assign an explicit container name at create time
   (`flame-<random_id>`). Set `Hostname` to the same value so the BEAM's
   default hostname matches what Docker DNS resolves.
@@ -122,28 +106,26 @@ Both parent and runner use container names as Erlang node hostnames:
 ### `init/1`
 
 1. Merge `Application.get_env(:flame, FlameDockerBackend)` with pool opts.
-2. Validate required config: `:image`, and either `:network` or `kamal: true`.
-3. Optional config: `:docker_socket`, `:kamal`, `:parent_hostname`, `:host_config`,
+2. Validate required config: `:image` and `:network`.
+3. Optional config: `:docker_socket`, `:parent_hostname`, `:host_config`,
    `:mounts`, `:boot_timeout`, `:env`, `:cmd`, `:log`.
    `:host_config` is an arbitrary Docker `HostConfig` map (passthrough).
-4. If `kamal: true` and `:network` is unset, default `:network` to `"kamal"`.
-5. Generate unique runner name: `"flame-#{rand_id(20)}"` (used as container name
+4. Generate unique runner name: `"flame-#{rand_id(20)}"` (used as container name
    and Erlang hostname).
-6. Resolve parent container name on the Docker network (inspect self, or
+5. Resolve parent container name on the Docker network (inspect self, or
    `:parent_hostname` override).
-7. `make_ref()` → encode `FLAME.Parent` with `host_env: nil`.
-8. Build the env map with `FLAME_PARENT`, `PHX_SERVER=false`, user-provided env.
+6. `make_ref()` → encode `FLAME.Parent` with `host_env: nil`.
+7. Build the env map with `FLAME_PARENT`, `PHX_SERVER=false`, user-provided env.
    Forward `RELEASE_COOKIE`, `ERL_AFLAGS`, and `ERL_ZFLAGS` from the parent
    when present.
-9. Return `{:ok, state}`.
+8. Return `{:ok, state}`.
 
 ### `remote_boot/1`
 
 1. Build the create payload via `build_create_body/1` (see §5): merge user
    `:host_config` / `:mounts` with required wiring fields, then call Docker API.
    - Container `name` and `Hostname` = runner node base name.
-   - Attach to the required user-defined network (`:network`, or `"kamal"` when
-     `kamal: true`).
+   - Attach to the required user-defined network (`:network`).
    - Set `ERL_FLAGS=--name <node_base>@<container_name>`.
    - Forward `RELEASE_COOKIE` from the parent so runner and parent share a cookie.
    - Force `HostConfig.AutoRemove: true` (backend override; see §5).
@@ -211,13 +193,6 @@ config :flame, FlameDockerBackend,
   env: %{
     "DATABASE_URL" => "...",
   }
-
-# Kamal 2 deployment (network defaults to "kamal")
-config :flame, FlameDockerBackend,
-  image: "my-app:latest",
-  kamal: true,
-  parent_hostname: "my-app",               # match deploy.yml network-alias
-  boot_timeout: 30_000
 ```
 
 Per-pool overrides via the `backend` option in `FLAME.Pool`:
@@ -264,7 +239,7 @@ merged on top for wiring-critical keys.
 | `name` (query param)                     | Backend  | `"flame-<random_id>"` — container name and Erlang hostname |
 | `"Image"`                                | Backend  | From `:image` |
 | `"Hostname"`                             | Backend  | Same as container `name` — matches Docker DNS on `:network` |
-| `"NetworkingConfig"."EndpointsConfig"`   | Backend  | `%{"<network>" => %{}}` — attaches runner to required user-defined network (`:network`, or `"kamal"`) |
+| `"NetworkingConfig"."EndpointsConfig"`   | Backend  | `%{"<network>" => %{}}` — attaches runner to required user-defined network (`:network`) |
 | `"Env"`                                  | Backend  | Merged env (see below) |
 | `"Cmd"`                                  | Backend  | From `:cmd` when set |
 | `"HostConfig"."AutoRemove"`              | Backend  | Always `true` — safety net for cleanup |
@@ -404,8 +379,7 @@ the user must ensure both nodes share a cookie by other means (e.g. set
 1. **Unix socket HTTP client:** — use OTP `:httpc` with `unix_socket` + `ipfamily: :local`.
    Use a dedicated `:httpc` profile to isolate from other users.
 2. **Docker network model:** — always require a user-defined
-   network (`:network` is mandatory). Special Kamal 2 support via `kamal: true`
-   (defaults network to `"kamal"`). Container names on that network are the
+   network (`:network` is mandatory). Container names on that network are the
    Erlang node hostnames; default `bridge` is not supported.
 3. **Runner hostname discovery:** — use container name as
    hostname (Docker DNS on user-defined networks). Set `name` + `Hostname` at

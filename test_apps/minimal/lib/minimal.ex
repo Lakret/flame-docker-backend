@@ -3,10 +3,14 @@ defmodule Minimal do
   Example of a minimal app that uses FLAME with FlameDockerBackend.DockerAPI.
   """
 
-  def test_flame_backend_lambda() do
-    FLAME.call(Minimal.Runner, fn ->
-      Process.sleep(10_000)
-      :rand.uniform()
-    end)
+  def test_flame_backend_lambda(timeout \\ 10_000) do
+    FLAME.call(
+      Minimal.Runner,
+      fn ->
+        Process.sleep(1_000)
+        :rand.uniform()
+      end,
+      timeout: timeout
+    )
   end
 end

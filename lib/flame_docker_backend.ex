@@ -20,11 +20,17 @@ defmodule FlameDockerBackend do
     # `PHX_SERVER=false` and `FLAME_PARENT` (with encoded parent info) env vars will be automatically added to this map.
     # `ERL_AFLAGS` and `ERL_ZFLAGS` will be copied from the Parent node and passed here too, if not explicitly defined.
     :env,
+    # Docker HostConfig map for runner containers (resource limits, binds, etc.).
+    :host_config,
+    # Top-level Docker Mounts list for runner containers.
+    :mounts,
+    # Docker Cmd override for runner containers (list of strings).
+    :cmd,
     # Path to the Docker API Unix socket. This socket needs to be mounted into the Parent's docker container.
     # If not provided, a default value based on the operating system will be used.
     :docker_socket_path,
-    # Are we running with Kamal 2?
-    :is_kamal,
+    # Debug option for not removing failed Runner containers.
+    :keep_failed_runners,
     # How long to wait for the Runner to boot, in milliseconds. Defaults to 30 seconds.
     :boot_timeout,
     # Environment variable used to lookup Runner's node hostaname for node's longname. Defaults to "HOSTNAME".
@@ -54,8 +60,11 @@ defmodule FlameDockerBackend do
           image: String.t(),
           network: String.t(),
           env: map() | nil,
+          host_config: map() | nil,
+          mounts: list() | nil,
+          cmd: [String.t()] | nil,
           docker_socket_path: String.t() | nil,
-          is_kamal: bool | nil,
+          keep_failed_runners: bool() | nil,
           boot_timeout: pos_integer(),
           runner_hostname_env: String.t() | nil,
           runner_node_base: String.t() | nil,
@@ -74,7 +83,7 @@ defmodule FlameDockerBackend do
     default_opts = %__MODULE__{
       app: app,
       env: %{},
-      is_kamal: false,
+      keep_failed_runners: false,
       boot_timeout: 30_000,
       runner_hostname_env: "HOSTNAME",
       parent_hostname: parent_hostname
@@ -109,33 +118,29 @@ defmodule FlameDockerBackend do
     with {:ok, _httpc_profile_pid} <- DockerAPI.init(state.docker_socket_path),
          {:ok, _version} <- DockerAPI.version(),
          :ok <- maybe_pull_image(state.image),
-         {:ok, runner_container_id} <-
-           DockerAPI.create_container(%{
-             "Hostname" => state.runner_node_base,
-             "name" => state.runner_node_base,
-             "Image" => state.image,
-             "Env" => state.env |> Map.to_list() |> Enum.map(fn {k, v} -> "#{k}=#{v}" end),
-             "NetworkingConfig" => %{"EndpointsConfig" => %{state.network => %{}}}
-           }),
+         {:ok, runner_container_id} <- DockerAPI.create_container(build_create_body(state)),
          :ok <- DockerAPI.start_container(runner_container_id) do
-      remote_terminator_pid =
-        receive do
-          {^parent_ref, {:remote_up, remote_terminator_pid}} ->
-            remote_terminator_pid
-        after
-          state.boot_timeout ->
-            Logger.error("Didn't receive terminator pid from the Runner container after #{state.boot_timeout} ms.")
-            exit(:timeout)
-        end
+      receive do
+        {^parent_ref, {:remote_up, remote_terminator_pid}} ->
+          state = %{
+            state
+            | runner_container_id: runner_container_id,
+              remote_terminator_pid: remote_terminator_pid,
+              runner_node_name: node(remote_terminator_pid)
+          }
 
-      state = %{
-        state
-        | runner_container_id: runner_container_id,
-          remote_terminator_pid: remote_terminator_pid,
-          runner_node_name: node(remote_terminator_pid)
-      }
+          {:ok, remote_terminator_pid, state}
+      after
+        state.boot_timeout ->
+          Logger.error("Didn't receive terminator pid from the Runner container after #{state.boot_timeout} ms.")
 
-      {:ok, remote_terminator_pid, state}
+          if not state.keep_failed_runners do
+            result = DockerAPI.stop_and_remove_container(runner_container_id)
+            Logger.info("Removal of failed Runner via Docker API: #{inspect(result)}.")
+          end
+
+          {:error, :timeout}
+      end
     end
   end
 
@@ -185,6 +190,24 @@ defmodule FlameDockerBackend do
       env
     end
   end
+
+  @spec build_create_body(t()) :: map()
+  defp build_create_body(%__MODULE__{} = state) do
+    %{
+      "Hostname" => state.runner_node_base,
+      "name" => state.runner_node_base,
+      "Image" => state.image,
+      "Env" => state.env |> Map.to_list() |> Enum.map(fn {k, v} -> "#{k}=#{v}" end),
+      "NetworkingConfig" => %{"EndpointsConfig" => %{state.network => %{}}}
+    }
+    |> maybe_put_create_field("HostConfig", state.host_config)
+    |> maybe_put_create_field("Cmd", state.cmd)
+    |> maybe_put_create_field("Mounts", state.mounts)
+  end
+
+  @spec maybe_put_create_field(map(), String.t(), term()) :: map()
+  defp maybe_put_create_field(body, _key, nil), do: body
+  defp maybe_put_create_field(body, key, value), do: Map.put(body, key, value)
 
   @spec maybe_pull_image(String.t()) :: :ok | {:error, any()}
   defp maybe_pull_image(image) do

@@ -18,7 +18,6 @@ are done with httpc, so no additional HTTP client libraries are used.
 the backend pulls it before booting the runner.
 - **Environment propagation** — `ERL_AFLAGS` and `ERL_ZFLAGS` are forwarded from the parent to runners automatically,
 additional environment variables are configurable.
-- **Kamal 2 compatible** — ships with `is_kamal` support for deployments managed by [Kamal](https://kamal-deploy.org).
 
 ## Installation
 
@@ -61,6 +60,11 @@ Then add a `FLAME.Pool` to your application supervisor:
 - `:boot_timeout` — Milliseconds to wait for a runner to connect back (default: `30_000`)
 - `:docker_socket_path` — Path to the Docker socket (auto-detected if omitted)
 - `:env` — Additional environment variables to set on runner containers
+- `:host_config` — Docker `HostConfig` map (resource limits, binds, etc.)
+- `:mounts` — Docker `Mounts` list (bind mounts, volumes, tmpfs)
+- `:cmd` — Docker `Cmd` override (list of strings)
+
+See [Available configurations](#available-configurations) for examples.
 
 **Docker socket paths by platform:**
 
@@ -83,6 +87,70 @@ See integration steps in
 
 See integration steps in
 [phx_minimal test app's README](test_apps/phx_minimal/README.md#flame--flamedockerbackend-integration-steps).
+
+## Available configurations
+
+Runner container options use Docker Engine API field names. Set them globally in
+`config :flame, FlameDockerBackend`, per pool via the `backend` tuple, or at
+runtime when starting a pool or `FLAME.Runner`.
+
+**Application config** (`config/runtime.exs`):
+
+```elixir
+config :flame, FlameDockerBackend,
+  image: "my-app:latest",
+  network: "my_network",
+  host_config: %{
+    "Memory" => 2_147_483_648,
+    "NanoCpus" => 2_000_000_000,
+    "Ulimits" => [%{"Name" => "nofile", "Soft" => 65_536, "Hard" => 65_536}]
+  },
+  mounts: [
+    %{"Type" => "bind", "Source" => "/data/models", "Target" => "/models", "ReadOnly" => true}
+  ]
+```
+
+**Per-pool overrides** (static or dynamic values at startup):
+
+```elixir
+{FLAME.Pool,
+ name: MyApp.GpuRunner,
+ backend:
+   {FlameDockerBackend,
+    image: "my-app:gpu",
+    network: System.fetch_env!("DOCKER_NETWORK"),
+    host_config: %{"Memory" => 4_294_967_296, "NanoCpus" => 4_000_000_000},
+    mounts: [
+      %{
+        "Type" => "bind",
+        "Source" => "/var/run/docker.sock",
+        "Target" => "/var/run/docker.sock",
+        "ReadOnly" => true
+      }
+    ]},
+ min: 0,
+ max: 2,
+ idle_shutdown_after: 30_000}
+```
+
+**One-off runner** with custom container settings:
+
+```elixir
+{:ok, runner} =
+  FLAME.Runner.start_link(
+    backend:
+      {FlameDockerBackend,
+       image: "my-app:latest",
+       network: "my_network",
+       cmd: ["bin/my_app", "start"]}
+  )
+```
+
+Pool-level `backend` options override application config. Wiring fields
+(`Hostname`, `NetworkingConfig`, `FLAME_PARENT`, etc.) are always set by the
+backend and cannot be overridden.
+
+
 
 ## Testing
 
@@ -124,6 +192,8 @@ end)
 
 # Execute many tasks — observe that only max containers from the FLAME.Pool child spec are spawned:
 (for _ <- 1..10, do: Task.async(fn -> Minimal.test_flame_backend_lambda() end)) |> Task.await_many(120_000)
+# Or even more tasks:
+(for _ <- 1..10_000, do: Task.async(fn -> Minimal.test_flame_backend_lambda(:infinity) end)) |> Task.await_many(:infinity)
 ```
 
 **Connect to the FLAME runner node:**
