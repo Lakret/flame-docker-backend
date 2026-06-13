@@ -45,16 +45,12 @@ defmodule FlameDockerBackend.DockerIntegration do
   def ensure_image!(app) when app in [:minimal, :phx_minimal] do
     %{image: image, dockerfile: dockerfile} = Map.fetch!(@test_apps, app)
 
-    if DockerAPI.image_exists?(image) do
-      :ok
-    else
-      case DockerAPI.build_image(image, Path.join(@repo_root, dockerfile), @repo_root) do
-        {:ok, _} ->
-          :ok
+    case DockerAPI.build_image(image, Path.join(@repo_root, dockerfile), @repo_root) do
+      {:ok, _} ->
+        :ok
 
-        {:error, reason} ->
-          raise "docker build #{image} failed: #{inspect(reason)}"
-      end
+      {:error, reason} ->
+        raise "docker build #{image} failed: #{inspect(reason)}"
     end
   end
 
@@ -66,12 +62,8 @@ defmodule FlameDockerBackend.DockerIntegration do
     } = Map.fetch!(@test_apps, app)
 
     parent_name = "#{parent_prefix}-#{suffix}"
-    runner_filter = Map.fetch!(@test_apps, app).runner_name_filter
+    cleanup!(%{parent_name: parent_name, network: network, app: app})
 
-    # TODO: use clenaup! ?
-    remove_containers_by_name(runner_filter)
-    remove_containers_by_name(parent_prefix)
-    _ = DockerAPI.remove_network(network)
     :ok = DockerAPI.create_network(network)
 
     socket = DockerAPI.default_socket_path()
@@ -95,8 +87,8 @@ defmodule FlameDockerBackend.DockerIntegration do
       })
 
     :ok = DockerAPI.start_container(parent_id)
-    wait_until_running!(parent_id, 60_000)
-    wait_until_rpc!(parent_name, Map.fetch!(@test_apps, app).release_bin, 60_000)
+    wait_until_running!(parent_id, 30_000)
+    wait_until_rpc!(parent_name, Map.fetch!(@test_apps, app).release_bin, 30_000)
 
     %{parent_name: parent_name, parent_id: parent_id, network: network, app: app}
   end
@@ -110,7 +102,7 @@ defmodule FlameDockerBackend.DockerIntegration do
     DockerAPI.remove_network(network)
   end
 
-  def wait_for_no_runners!(app, timeout_ms \\ 60_000) do
+  def wait_for_no_runners!(app, timeout_ms \\ 30_000) do
     deadline = System.monotonic_time(:millisecond) + timeout_ms
     do_wait_for_no_runners!(app, deadline)
   end
@@ -123,7 +115,7 @@ defmodule FlameDockerBackend.DockerIntegration do
         raise "runner containers still present: #{inspect(runner_containers(app))}"
       end
 
-      Process.sleep(2_000)
+      Process.sleep(200)
       do_wait_for_no_runners!(app, deadline)
     end
   end
@@ -177,7 +169,7 @@ defmodule FlameDockerBackend.DockerIntegration do
         raise "container #{container_id} did not start within #{timeout_ms}ms"
       end
 
-      Process.sleep(500)
+      Process.sleep(200)
       wait_until_running!(container_id, timeout_ms)
     end
   end
@@ -201,7 +193,7 @@ defmodule FlameDockerBackend.DockerIntegration do
           raise "release rpc on #{parent_name} not ready within #{timeout_ms}ms"
         end
 
-        Process.sleep(1_000)
+        Process.sleep(200)
         wait_until_rpc!(parent_name, release_bin, timeout_ms)
     end
   end

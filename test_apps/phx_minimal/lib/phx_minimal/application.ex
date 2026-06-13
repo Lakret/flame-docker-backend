@@ -10,7 +10,7 @@ defmodule PhxMinimal.Application do
        backend: FlameDockerBackend,
        min: 0,
        max: 2,
-       idle_shutdown_after: 30_000,
+       idle_shutdown_after: 15_000,
        boot_timeout: 30_000},
       PhxMinimalWeb.Telemetry,
       PhxMinimal.Repo,
