@@ -1,8 +1,8 @@
-defmodule FlameDockerBackend.DockerAPI do
+defmodule FLAMEDockerBackend.DockerAPI do
   @moduledoc """
   Thin wrapper over Docker Engine API via Unix socket.
 
-  Transport only — sends JSON bodies as-is. `FlameDockerBackend` builds
+  Transport only — sends JSON bodies as-is. `FLAMEDockerBackend` builds
   create payloads via `build_create_body/1` (see `docs/PLAN.md` §5).
 
   Uses OTP `:httpc` with a dedicated profile (`:flame_docker`) to isolate
@@ -11,7 +11,7 @@ defmodule FlameDockerBackend.DockerAPI do
   ## Setup
 
   Call `init/1` once before any other function — typically from
-  `FlameDockerBackend.init/1`.
+  `FLAMEDockerBackend.init/1`.
 
   On WSL2, pass the socket path explicitly:
 
@@ -26,8 +26,8 @@ defmodule FlameDockerBackend.DockerAPI do
 
   Full round-trip — requires Docker to be running and `init/1` called first:
 
-      iex> alias FlameDockerBackend.DockerAPI
-      FlameDockerBackend.DockerAPI
+      iex> alias FLAMEDockerBackend.DockerAPI
+      FLAMEDockerBackend.DockerAPI
       iex> {:ok, _pid} = DockerAPI.init()
       iex> {:ok, _version} = DockerAPI.version()
       iex> {:ok, _events} = DockerAPI.pull_image(%{"fromImage" => "hello-world"})

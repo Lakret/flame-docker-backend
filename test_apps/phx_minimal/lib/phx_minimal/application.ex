@@ -7,7 +7,7 @@ defmodule PhxMinimal.Application do
     children = [
       {FLAME.Pool,
        name: PhxMinimal.Runner,
-       backend: FlameDockerBackend,
+       backend: FLAMEDockerBackend,
        min: 0,
        max: 2,
        idle_shutdown_after: 15_000,

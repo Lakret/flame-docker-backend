@@ -1,12 +1,12 @@
 # Minimal
 
-Minimal app example of using FlameDockerBackend.
+Minimal app example of using FLAMEDockerBackend.
 The app does nothing useful - it just tests that `FLAME.call` with our backend succeeds.
 Since the backend is Docker-specific, this functionality only works when the app is running inside a Docker container.
 
-## FLAME + FlameDockerBackend Integration Steps
+## FLAME + FLAMEDockerBackend Integration Steps
 
-To integrate FLAME with FlameDockerBackend, the default `mix phx.new --sup` skeleton was adopted like so:
+To integrate FLAME with FLAMEDockerBackend, the default `mix phx.new --sup` skeleton was adopted like so:
 
 - **Added [Mix dependencies](mix.exs).**
 
@@ -25,7 +25,7 @@ To integrate FLAME with FlameDockerBackend, the default `mix phx.new --sup` skel
   @impl true
   def start(_type, _args) do
     children = [
-      {FLAME.Pool, name: Minimal.Runner, backend: FlameDockerBackend, min: 0, max: 2, idle_shutdown_after: 30_000}
+      {FLAME.Pool, name: Minimal.Runner, backend: FLAMEDockerBackend, min: 0, max: 2, idle_shutdown_after: 30_000}
     ]
 
     ...

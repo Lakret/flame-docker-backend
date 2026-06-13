@@ -1,8 +1,8 @@
-defmodule FlameDockerBackend.IntegrationTest do
+defmodule FLAMEDockerBackend.IntegrationTest do
   use ExUnit.Case, async: false
 
-  alias FlameDockerBackend.DockerAPI
-  alias FlameDockerBackend.DockerIntegration
+  alias FLAMEDockerBackend.DockerAPI
+  alias FLAMEDockerBackend.DockerIntegration
 
   @moduletag :docker
   @moduletag timeout: 300_000
@@ -16,7 +16,7 @@ defmodule FlameDockerBackend.IntegrationTest do
 
   describe "DockerAPI network lifecycle" do
     test "creates and removes a network" do
-      name = "flame_docker_backend_api_test_#{FlameDockerBackend.rand_id(8)}"
+      name = "flame_docker_backend_api_test_#{FLAMEDockerBackend.rand_id(8)}"
 
       assert :ok = DockerAPI.create_network(name)
       assert DockerAPI.network_exists?(name)
@@ -27,7 +27,7 @@ defmodule FlameDockerBackend.IntegrationTest do
 
   describe "minimal test app" do
     setup context do
-      suffix = FlameDockerBackend.rand_id(8)
+      suffix = FLAMEDockerBackend.rand_id(8)
       ctx = DockerIntegration.start_parent!(:minimal, suffix)
 
       on_exit(fn -> DockerIntegration.cleanup!(ctx) end)
@@ -51,7 +51,7 @@ defmodule FlameDockerBackend.IntegrationTest do
 
   describe "phx_minimal test app" do
     setup context do
-      suffix = FlameDockerBackend.rand_id(8)
+      suffix = FLAMEDockerBackend.rand_id(8)
       ctx = DockerIntegration.start_parent!(:phx_minimal, suffix)
 
       on_exit(fn -> DockerIntegration.cleanup!(ctx) end)

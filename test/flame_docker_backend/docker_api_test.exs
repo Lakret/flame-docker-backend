@@ -1,7 +1,7 @@
-defmodule FlameDockerBackend.DockerAPITest do
+defmodule FLAMEDockerBackend.DockerAPITest do
   use ExUnit.Case, async: false
 
   @moduletag :docker
 
-  doctest FlameDockerBackend.DockerAPI
+  doctest FLAMEDockerBackend.DockerAPI
 end

@@ -1,12 +1,12 @@
 # PhxMinimal
 
-Phoenix app example of using FlameDockerBackend.
+Phoenix app example of using FLAMEDockerBackend.
 The app serves a simple LiveView UI that runs FLAME tasks on remote Docker runners, saves the returned colors to the database, and visualizes them.
 Since the backend is Docker-specific, remote FLAME tasks only work when the app is running inside a Docker container.
 
-## FLAME + FlameDockerBackend Integration Steps
+## FLAME + FLAMEDockerBackend Integration Steps
 
-To integrate FLAME with FlameDockerBackend, the default `mix phx.new --sup` skeleton was adopted like so:
+To integrate FLAME with FLAMEDockerBackend, the default `mix phx.new --sup` skeleton was adopted like so:
 
 - **Added [Mix dependencies](mix.exs).**
 
@@ -27,7 +27,7 @@ To integrate FLAME with FlameDockerBackend, the default `mix phx.new --sup` skel
     children = [
       {FLAME.Pool,
        name: PhxMinimal.Runner,
-       backend: FlameDockerBackend,
+       backend: FLAMEDockerBackend,
        min: 0,
        max: 2,
        idle_shutdown_after: 30_000},
@@ -42,9 +42,9 @@ To integrate FLAME with FlameDockerBackend, the default `mix phx.new --sup` skel
 
   ```elixir
   if config_env() in [:prod, :dev] do
-    config :flame, :backend, FlameDockerBackend
+    config :flame, :backend, FLAMEDockerBackend
 
-    config :flame, FlameDockerBackend,
+    config :flame, FLAMEDockerBackend,
       image: System.get_env("FLAME_IMAGE", "phx_minimal:latest"),
       network: System.get_env("FLAME_NETWORK", "phx_minimal_flame_docker_backend_test"),
       env: %{"SECRET_KEY_BASE" => System.get_env("SECRET_KEY_BASE")}

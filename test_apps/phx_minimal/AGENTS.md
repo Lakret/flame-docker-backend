@@ -4,7 +4,7 @@ This is a web application written using the Phoenix web framework.
 
 ### test_apps README files
 
-When updating `README.md` in `test_apps/*`, keep the **FLAME + FlameDockerBackend Integration Steps** chapter limited to generic integration work only: Mix deps, `FLAME.Pool` in the application supervisor, FlameDockerBackend config, and Dockerfile.
+When updating `README.md` in `test_apps/*`, keep the **FLAME + FLAMEDockerBackend Integration Steps** chapter limited to generic integration work only: Mix deps, `FLAME.Pool` in the application supervisor, FLAMEDockerBackend config, and Dockerfile.
 
 **Never** document demo-specific implementation details in that chapter — no LiveView modules, schemas, `FLAME.call` vs `FLAME.cast`, UI behavior, database tables, or other features that exist only to showcase the app. Put those in the intro, **Trying it Out**, or **Production** sections instead.
 

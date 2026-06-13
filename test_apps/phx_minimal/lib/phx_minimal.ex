@@ -1,6 +1,6 @@
 defmodule PhxMinimal do
   @moduledoc """
-  Phoenix app showcasing FLAME with FlameDockerBackend.
+  Phoenix app showcasing FLAME with FLAMEDockerBackend.
   """
   alias PhxMinimal.Colors
 

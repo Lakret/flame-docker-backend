@@ -14,7 +14,7 @@ Docker-out-of-Docker.
 │  ┌────────────────────┐  ┌────────────────────┐  │
 │  │ Parent container   │  │ Runner container   │  │
 │  │                    │  │                    │  │
-│  │  FlameDockerBackend│  │  FLAME.Terminator  │  │
+│  │  FLAMEDockerBackend│  │  FLAME.Terminator  │  │
 │  │  (FLAME.Pool)      │  │  (your app)        │  │
 │  │        │           │  │        │           │  │
 │  │        │  Docker API (unix socket)         │  │
@@ -25,7 +25,7 @@ Docker-out-of-Docker.
 └──────────────────────────────────────────────────┘
 ```
 
-## 1. Docker API Client (`FlameDockerBackend.DockerAPI`)
+## 1. Docker API Client (`FLAMEDockerBackend.DockerAPI`)
 
 Thin wrapper over the Docker Engine API via Unix socket using OTP's built-in `:httpc`.
 
@@ -101,11 +101,11 @@ Both parent and runner use container names as Erlang node hostnames:
 3. Set `ERL_FLAGS=--name <runner_node_base>@<container_name>` on the runner.
 4. Runner boots, reads `FLAME_PARENT`, calls `Node.connect/1` to parent by name.
 
-## 3. `FlameDockerBackend` Module — Callbacks
+## 3. `FLAMEDockerBackend` Module — Callbacks
 
 ### `init/1`
 
-1. Merge `Application.get_env(:flame, FlameDockerBackend)` with pool opts.
+1. Merge `Application.get_env(:flame, FLAMEDockerBackend)` with pool opts.
 2. Validate required config: `:image` and `:network`.
 3. Optional config: `:docker_socket`, `:parent_hostname`, `:host_config`,
    `:mounts`, `:boot_timeout`, `:env`, `:cmd`, `:log`.
@@ -174,7 +174,7 @@ Could handle unexpected container death. Likely not needed for v1.
 
 ```elixir
 # Generic Docker deployment
-config :flame, FlameDockerBackend,
+config :flame, FLAMEDockerBackend,
   image: "my-app:latest",
   docker_socket: "/var/run/docker.sock",  # parent :httpc profile socket (default)
   network: "my_network",                  # required — user-defined network
@@ -200,7 +200,7 @@ Per-pool overrides via the `backend` option in `FLAME.Pool`:
 ```elixir
 {FLAME.Pool,
   name: MyRunner,
-  backend: {FlameDockerBackend,
+  backend: {FLAMEDockerBackend,
     image: "my-app:latest",
     host_config: %{
       "NanoCpus" => 2_000_000_000,

@@ -1,25 +1,25 @@
-defmodule FlameDockerBackendTest do
+defmodule FLAMEDockerBackendTest do
   use ExUnit.Case, async: true
 
-  alias FlameDockerBackend
+  alias FLAMEDockerBackend
 
   describe "init/1" do
     test "returns error when image is missing" do
-      assert {:error, {:missing_config, :image}} = FlameDockerBackend.init(network: "net")
+      assert {:error, {:missing_config, :image}} = FLAMEDockerBackend.init(network: "net")
     end
 
     test "returns error when network is missing" do
-      assert {:error, {:missing_config, :network}} = FlameDockerBackend.init(image: "img:latest")
+      assert {:error, {:missing_config, :network}} = FLAMEDockerBackend.init(image: "img:latest")
     end
 
     test "rejects unknown config keys" do
       assert {:error, [:unknown]} =
-               FlameDockerBackend.init(image: "img:latest", network: "net", unknown: true)
+               FLAMEDockerBackend.init(image: "img:latest", network: "net", unknown: true)
     end
 
     test "user can override PHX_SERVER but not FLAME_PARENT" do
       {:ok, state} =
-        FlameDockerBackend.init(
+        FLAMEDockerBackend.init(
           image: "img:latest",
           network: "net",
           env: %{"PHX_SERVER" => "true", "FLAME_PARENT" => "evil"}
@@ -31,7 +31,7 @@ defmodule FlameDockerBackendTest do
     end
 
     test "defaults PHX_SERVER to false" do
-      {:ok, state} = FlameDockerBackend.init(image: "img:latest", network: "net")
+      {:ok, state} = FLAMEDockerBackend.init(image: "img:latest", network: "net")
       assert state.env["PHX_SERVER"] == "false"
     end
   end

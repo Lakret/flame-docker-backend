@@ -1,4 +1,4 @@
-defmodule FlameDockerBackend do
+defmodule FLAMEDockerBackend do
   @moduledoc """
   Docker-out-of-Docker backend for [FLAME](https://github.com/phoenixframework/flame).
 
@@ -7,7 +7,7 @@ defmodule FlameDockerBackend do
 
   ## Required configuration
 
-      config :flame, FlameDockerBackend,
+      config :flame, FLAMEDockerBackend,
         image: "my-app:latest",
         network: "my_network"
 
@@ -27,10 +27,10 @@ defmodule FlameDockerBackend do
 
   Per-pool overrides:
 
-      {FLAME.Pool, name: MyRunner, backend: {FlameDockerBackend, image: "...", network: "..."}}
+      {FLAME.Pool, name: MyRunner, backend: {FLAMEDockerBackend, image: "...", network: "..."}}
   """
   require Logger
-  alias FlameDockerBackend.DockerAPI
+  alias FLAMEDockerBackend.DockerAPI
 
   @behaviour FLAME.Backend
 

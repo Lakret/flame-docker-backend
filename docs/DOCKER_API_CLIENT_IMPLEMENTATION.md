@@ -1,6 +1,6 @@
 # Docker API Client Implementation Plan
 
-Detailed implementation guide for `FlameDockerBackend.DockerAPI` — a thin wrapper over Docker Engine API via Unix socket using OTP's `:httpc`.
+Detailed implementation guide for `FLAMEDockerBackend.DockerAPI` — a thin wrapper over Docker Engine API via Unix socket using OTP's `:httpc`.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Create `lib/flame_docker_backend/docker_api.ex` that provides functions to:
 All communication uses Unix socket HTTP via `:httpc` with a dedicated profile.
 
 `DockerAPI` is a thin transport layer: it sends the Docker API JSON body as-is.
-The backend module (`FlameDockerBackend`) builds the create payload by merging
+The backend module (`FLAMEDockerBackend`) builds the create payload by merging
 user `:host_config` / `:mounts` with required wiring fields — see **Container
 Create Payload** below and `docs/PLAN.md` §5.
 
@@ -76,7 +76,7 @@ Map.merge(user_host_config, %{"AutoRemove" => true})
 Create file `lib/flame_docker_backend/docker_api.ex`:
 
 ```elixir
-defmodule FlameDockerBackend.DockerAPI do
+defmodule FLAMEDockerBackend.DockerAPI do
   @moduledoc """
   Thin wrapper over Docker Engine API via Unix socket.
 
@@ -425,10 +425,10 @@ end
 Create `test/flame_docker_backend/docker_api_test.exs`:
 
 ```elixir
-defmodule FlameDockerBackend.DockerAPITest do
+defmodule FLAMEDockerBackend.DockerAPITest do
   use ExUnit.Case, async: false
 
-  alias FlameDockerBackend.DockerAPI
+  alias FLAMEDockerBackend.DockerAPI
 
   @moduletag :docker
 
@@ -523,7 +523,7 @@ end
 The complete file at `lib/flame_docker_backend/docker_api.ex` should have:
 
 ```elixir
-defmodule FlameDockerBackend.DockerAPI do
+defmodule FLAMEDockerBackend.DockerAPI do
   @moduledoc """
   Thin wrapper over Docker Engine API via Unix socket.
 
@@ -606,4 +606,4 @@ After implementation:
 
 7. **HostConfig passthrough**: `create_container/2` accepts any `"HostConfig"` map.
    Backend wiring (`AutoRemove`, network, env, hostname) is applied in
-   `FlameDockerBackend.build_create_body/1`, not in `DockerAPI`.
+   `FLAMEDockerBackend.build_create_body/1`, not in `DockerAPI`.

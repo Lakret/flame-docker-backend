@@ -1,4 +1,4 @@
-# FlameDockerBackend
+# FLAMEDockerBackend
 
 A [FLAME](https://github.com/phoenixframework/flame) backend that runs runners as Docker containers on the host machine via the Docker Engine API — no cloud account, no Kubernetes, no external infrastructure required.
 
@@ -34,9 +34,9 @@ end
 Add to your `config/runtime.exs`:
 
 ```elixir
-config :flame, :backend, FlameDockerBackend
+config :flame, :backend, FLAMEDockerBackend
 
-config :flame, FlameDockerBackend,
+config :flame, FLAMEDockerBackend,
   image: "my-app:latest",
   network: "my_network"
 ```
@@ -46,7 +46,7 @@ Then add a `FLAME.Pool` to your application supervisor:
 ```elixir
 {FLAME.Pool,
  name: MyApp.Runner,
- backend: FlameDockerBackend,
+ backend: FLAMEDockerBackend,
  min: 0,
  max: 4,
  idle_shutdown_after: 30_000}
@@ -112,13 +112,13 @@ See integration steps in
 ## Available configurations
 
 Runner container options use Docker Engine API field names. Set them globally in
-`config :flame, FlameDockerBackend`, per pool via the `backend` tuple, or at
+`config :flame, FLAMEDockerBackend`, per pool via the `backend` tuple, or at
 runtime when starting a pool or `FLAME.Runner`.
 
 **Application config** (`config/runtime.exs`):
 
 ```elixir
-config :flame, FlameDockerBackend,
+config :flame, FLAMEDockerBackend,
   image: "my-app:latest",
   network: "my_network",
   host_config: %{
@@ -137,7 +137,7 @@ config :flame, FlameDockerBackend,
 {FLAME.Pool,
  name: MyApp.GpuRunner,
  backend:
-   {FlameDockerBackend,
+   {FLAMEDockerBackend,
     image: "my-app:gpu",
     network: System.fetch_env!("DOCKER_NETWORK"),
     host_config: %{"Memory" => 4_294_967_296, "NanoCpus" => 4_000_000_000},
@@ -160,7 +160,7 @@ config :flame, FlameDockerBackend,
 {:ok, runner} =
   FLAME.Runner.start_link(
     backend:
-      {FlameDockerBackend,
+      {FLAMEDockerBackend,
        image: "my-app:latest",
        network: "my_network",
        cmd: ["bin/my_app", "start"]}

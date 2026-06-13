@@ -1,6 +1,6 @@
 defmodule Minimal do
   @moduledoc """
-  Example of a minimal app that uses FLAME with FlameDockerBackend.DockerAPI.
+  Example of a minimal app that uses FLAME with FLAMEDockerBackend.DockerAPI.
   """
 
   def test_flame_backend_lambda(timeout \\ 10_000) do

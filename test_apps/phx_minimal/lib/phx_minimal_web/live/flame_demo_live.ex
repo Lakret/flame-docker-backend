@@ -22,7 +22,7 @@ defmodule PhxMinimalWeb.FlameDemoLive do
         <div class="space-y-2 text-center">
           <h1 class="text-3xl font-bold tracking-tight">FLAME Docker Demo</h1>
           <p class="text-base-content/70 max-w-md">
-            Each click runs a remote task on a Docker runner via FlameDockerBackend.
+            Each click runs a remote task on a Docker runner via FLAMEDockerBackend.
             Completed colors are saved to the database.
           </p>
         </div>

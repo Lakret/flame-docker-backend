@@ -1,7 +1,7 @@
-defmodule FlameDockerBackend.DockerIntegration do
+defmodule FLAMEDockerBackend.DockerIntegration do
   @moduledoc false
 
-  alias FlameDockerBackend.DockerAPI
+  alias FLAMEDockerBackend.DockerAPI
 
   @repo_root Path.expand("../..", Path.dirname(__ENV__.file))
   @integration_cookie "flame_docker_backend_integration_test"

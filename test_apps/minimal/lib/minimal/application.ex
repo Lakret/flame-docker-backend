@@ -8,7 +8,7 @@ defmodule Minimal.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      {FLAME.Pool, name: Minimal.Runner, backend: FlameDockerBackend, min: 0, max: 2, idle_shutdown_after: 15_000}
+      {FLAME.Pool, name: Minimal.Runner, backend: FLAMEDockerBackend, min: 0, max: 2, idle_shutdown_after: 15_000}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

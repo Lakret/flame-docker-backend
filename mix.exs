@@ -1,4 +1,4 @@
-defmodule FlameDockerBackend.MixProject do
+defmodule FLAMEDockerBackend.MixProject do
   use Mix.Project
 
   @version "0.1.0"

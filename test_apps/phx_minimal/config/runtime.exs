@@ -23,9 +23,9 @@ end
 config :phx_minimal, PhxMinimalWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 if config_env() in [:prod, :dev] do
-  config :flame, :backend, FlameDockerBackend
+  config :flame, :backend, FLAMEDockerBackend
 
-  config :flame, FlameDockerBackend,
+  config :flame, FLAMEDockerBackend,
     image: System.get_env("FLAME_IMAGE", "phx_minimal:latest"),
     network: System.get_env("FLAME_NETWORK", "phx_minimal_flame_docker_backend_test"),
     env: %{"SECRET_KEY_BASE" => System.get_env("SECRET_KEY_BASE")}
