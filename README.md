@@ -173,6 +173,20 @@ backend and cannot be overridden.
 
 ## Testing
 
+**Unit tests** (default):
+
+```bash
+mix test
+```
+
+**Docker integration tests** — build the test app images, start parent containers, and
+run `FLAME.call` via release RPC. Requires a running Docker daemon and the socket path
+detected by `DockerAPI.default_socket_path/0`:
+
+```bash
+mix test.docker
+```
+
 ### `test_apps/minimal`
 
 A minimal test application for integration testing.

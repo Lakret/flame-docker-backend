@@ -86,11 +86,20 @@ defmodule FlameDockerBackend.DockerAPI do
   end
 
   @doc """
-  Lists running containers.
+  Lists containers.
+
+  Options:
+  - `:all` — include stopped containers (default `false`)
+  - `:filters` — Docker filters map, e.g. `%{"name" => ["minimal-flame"]}`
   """
-  @spec ps() :: {:ok, [map()]} | {:error, any()}
-  def ps() do
-    get("/containers/json") |> decode_resp()
+  @spec list_containers(keyword()) :: {:ok, [map()]} | {:error, any()}
+  def list_containers(opts \\ []) do
+    all = if Keyword.get(opts, :all, false), do: "1", else: "0"
+    filters = Keyword.get(opts, :filters)
+
+    params = %{"all" => all}
+    params = if filters, do: Jason.encode!(filters) |> then(fn x -> Map.put(params, "filters", x) end), else: params
+    get("/containers/json?#{URI.encode_query(params)}") |> decode_resp()
   end
 
   @doc """
@@ -211,6 +220,80 @@ defmodule FlameDockerBackend.DockerAPI do
   def stop_and_remove_container(id, timeout \\ 10) do
     with :ok <- stop_container(id, timeout) do
       remove_container(id, force: true)
+    end
+  end
+
+  ## API only used in Integration Tests
+
+  @doc """
+  Creates a user-defined bridge network. Treats name conflict as success.
+  Only used in tests.
+  """
+  @spec create_network(String.t()) :: :ok | {:error, any()}
+  def create_network(name) when is_binary(name) do
+    case post("#{@prefix}/networks/create", %{"Name" => name, "CheckDuplicate" => true}) |> decode_resp() do
+      {:ok, _} ->
+        :ok
+
+      {:error, {:docker_error, 409, _}} ->
+        :ok
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  @doc """
+  Removes a network. Treats 404 as success.
+  Only used in tests.
+  """
+  @spec remove_network(String.t()) :: :ok | {:error, any()}
+  def remove_network(name) when is_binary(name) do
+    case delete("/networks/#{URI.encode(name)}") do
+      {:ok, {{_, status, _}, _, _}} when status in [204, 404] ->
+        :ok
+
+      {:ok, {{_, status, _}, _, body}} ->
+        {:error, {:docker_error, status, to_string(body)}}
+
+      {:error, reason} ->
+        {:error, {:httpc_error, reason}}
+    end
+  end
+
+  @doc false
+  @spec network_exists?(String.t()) :: boolean()
+  def network_exists?(name) when is_binary(name) do
+    case get("/networks/#{URI.encode(name)}") do
+      {:ok, {{_, 200, _}, _, _}} -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Builds an image via the `docker build` CLI.
+  Only used in tests.
+
+  The HTTP build API is stream-heavy, so the CLI is used.
+  """
+  @spec build_image(String.t(), String.t(), String.t()) :: {:ok, String.t()} | {:error, any()}
+  def build_image(tag, dockerfile, context_dir)
+      when is_binary(tag) and is_binary(dockerfile) and is_binary(context_dir) do
+    case System.cmd("docker", ["build", "-t", tag, "-f", dockerfile, context_dir], stderr_to_stdout: true) do
+      {output, 0} -> {:ok, output}
+      {output, code} -> {:error, {:docker_cli, code, output}}
+    end
+  end
+
+  @doc """
+  Runs `docker exec` against a container name or ID.
+  Only used in tests.
+  """
+  @spec exec(String.t(), [String.t()]) :: {:ok, String.t()} | {:error, any()}
+  def exec(container, args) when is_binary(container) and is_list(args) do
+    case System.cmd("docker", ["exec", container | args], stderr_to_stdout: true) do
+      {output, 0} -> {:ok, String.trim(output)}
+      {output, code} -> {:error, {:docker_cli, code, output}}
     end
   end
 
