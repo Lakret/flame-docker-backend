@@ -1,5 +1,10 @@
 # FLAMEDockerBackend
 
+[![Hex.pm](https://img.shields.io/hexpm/v/flame_docker_backend.svg)](https://hex.pm/packages/flame_docker_backend)
+[![HexDocs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/flame_docker_backend)
+[![CI](https://github.com/Lakret/flame-docker-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/Lakret/flame-docker-backend/actions/workflows/ci.yml)
+[![License](https://img.shields.io/hexpm/l/flame_docker_backend.svg)](https://github.com/Lakret/flame-docker-backend/blob/main/LICENSE)
+
 A [FLAME](https://github.com/phoenixframework/flame) backend that runs runners
 as Docker containers on the host machine via the Docker Engine API (Docker-out-of-Docker) —
 no cloud account, no Kubernetes, no external infrastructure required.
