@@ -49,6 +49,7 @@ defmodule FLAMEDockerBackend.MixProject do
       extras: [
         "README.md",
         "CHANGELOG.md",
+        {"docs/guides/developer_guide.md", title: "Developer Guide"},
         {"docs/guides/flame_backends.md", title: "Building FLAME Backends"}
       ]
     ]
