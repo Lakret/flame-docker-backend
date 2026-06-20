@@ -79,7 +79,15 @@ jobs:
 
       - name: Verify tag matches mix version
         run: |
-          VERSION="$(mix eval 'IO.write(Mix.Project.config()[:version])')"
+          VERSION="$(sed -n 's/^  @version "\(.*\)"/\1/p' mix.exs)"
+
+          echo "Git tag: $GITHUB_REF_NAME"
+          echo "mix.exs version: $VERSION"
+
+          if [ -z "$VERSION" ]; then
+            echo "Could not read @version from mix.exs"
+            exit 1
+          fi
 
           if [ "$GITHUB_REF_NAME" != "v$VERSION" ]; then
             echo "Tag $GITHUB_REF_NAME does not match mix.exs version v$VERSION"
