@@ -49,6 +49,42 @@ defmodule FLAMEDockerBackend.IntegrationTest do
     end
   end
 
+  describe "minimal test app with host_config" do
+    @memory_limit 64_000_000
+
+    setup context do
+      suffix = FLAMEDockerBackend.rand_id(8)
+      host_config = %{"Memory" => @memory_limit}
+
+      ctx =
+        DockerIntegration.start_parent!(:minimal, suffix,
+          host_config: host_config
+        )
+
+      on_exit(fn -> DockerIntegration.cleanup!(ctx) end)
+
+      Map.merge(context, Map.put(ctx, :memory_limit, @memory_limit))
+    end
+
+    test "FLAME.call applies host_config to the runner container", %{
+      parent_name: parent_name,
+      app: app,
+      memory_limit: memory_limit
+    } do
+      assert DockerIntegration.runner_containers(app) == []
+
+      DockerIntegration.exec_rpc!(parent_name, app)
+
+      runner_id = DockerIntegration.wait_for_runner!(app)
+
+      assert {:ok, info} = DockerAPI.inspect_container(runner_id)
+      assert info["HostConfig"]["Memory"] == memory_limit
+
+      DockerIntegration.wait_for_no_runners!(app)
+      assert DockerIntegration.runner_containers(app) == []
+    end
+  end
+
   describe "phx_minimal test app" do
     setup context do
       suffix = FLAMEDockerBackend.rand_id(8)

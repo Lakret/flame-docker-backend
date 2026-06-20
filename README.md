@@ -1,13 +1,18 @@
 # FLAMEDockerBackend
 
-A [FLAME](https://github.com/phoenixframework/flame) backend that runs runners as Docker containers on the host machine via the Docker Engine API — no cloud account, no Kubernetes, no external infrastructure required.
+A [FLAME](https://github.com/phoenixframework/flame) backend that runs runners
+as Docker containers on the host machine via the Docker Engine API (Docker-out-of-Docker) —
+no cloud account, no Kubernetes, no external infrastructure required.
 
-The parent app runs inside a container and provisions runners by talking to the host Docker daemon through the mounted socket. Runners are ordinary containers started from the same image, connected to the same user-defined network, and shut down automatically when idle.
+The parent app runs inside a container and provisions runners by talking to the host Docker daemon
+through the mounted socket.
+Runners are ordinary containers started from the same image, connected to the same user-defined network,
+and shut down automatically when idle.
 
 ## Features
 
-- **Zero-infrastructure local scaling** — provision FLAME runners on your local machine or any host with Docker.
-No cloud provider setup or k8s needed.
+- **Zero-infrastructure local scaling / resource usage control** — provision FLAME runners on your local machine
+or any host with Docker. No cloud provider setup or k8s needed. Allows limiting resources per specific task.
 - **Docker-out-of-Docker** — the parent runs inside a container and talks to the host daemon through
 a mounted socket (`/var/run/docker.sock`). No privileged containers or sidecars required.
 - **Cross-platform socket detection** — automatically finds the Docker socket on Linux, macOS (Docker Desktop),

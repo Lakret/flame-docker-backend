@@ -54,7 +54,7 @@ defmodule FLAMEDockerBackend.DockerIntegration do
     end
   end
 
-  def start_parent!(app, suffix) when app in [:minimal, :phx_minimal] do
+  def start_parent!(app, suffix, opts \\ []) when app in [:minimal, :phx_minimal] do
     %{
       image: image,
       network: network,
@@ -73,7 +73,7 @@ defmodule FLAMEDockerBackend.DockerIntegration do
         "FLAME_NETWORK=#{network}",
         "FLAME_IMAGE=#{image}",
         "RELEASE_COOKIE=#{@integration_cookie}"
-      ] ++ parent_env(app)
+      ] ++ parent_env(app) ++ host_config_env(Keyword.get(opts, :host_config))
 
     {:ok, parent_id} =
       DockerAPI.create_container(%{
@@ -100,6 +100,26 @@ defmodule FLAMEDockerBackend.DockerIntegration do
     remove_containers_by_name(runner_filter)
     remove_containers_by_name(parent_name)
     DockerAPI.remove_network(network)
+  end
+
+  def wait_for_runner!(app, timeout_ms \\ 30_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    do_wait_for_runner!(app, deadline)
+  end
+
+  defp do_wait_for_runner!(app, deadline) do
+    case runner_containers(app) do
+      [%{"Id" => id} | _] ->
+        id
+
+      [] ->
+        if System.monotonic_time(:millisecond) > deadline do
+          raise "runner container did not appear before deadline"
+        end
+
+        Process.sleep(200)
+        do_wait_for_runner!(app, deadline)
+    end
   end
 
   def wait_for_no_runners!(app, timeout_ms \\ 30_000) do
@@ -148,6 +168,12 @@ defmodule FLAMEDockerBackend.DockerIntegration do
       {:error, reason} ->
         raise "rpc failed: #{inspect(reason)}"
     end
+  end
+
+  defp host_config_env(nil), do: []
+
+  defp host_config_env(host_config) when is_map(host_config) do
+    ["FLAME_HOST_CONFIG=#{Jason.encode!(host_config)}"]
   end
 
   defp parent_env(:minimal), do: []
