@@ -35,6 +35,7 @@ defmodule FLAMEDockerBackend.MixProject do
 
   defp package do
     [
+      maintainers: ["Lakret"],
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url}
     ]
@@ -43,7 +44,13 @@ defmodule FLAMEDockerBackend.MixProject do
   defp docs do
     [
       main: "readme",
-      extras: ["README.md"]
+      source_url: @source_url,
+      source_ref: "v#{@version}",
+      extras: [
+        "README.md",
+        "CHANGELOG.md",
+        {"docs/guides/flame_backends.md", title: "Building FLAME Backends"}
+      ]
     ]
   end
 

@@ -6,7 +6,7 @@ Since the backend is Docker-specific, this functionality only works when the app
 
 ## FLAME + FLAMEDockerBackend Integration Steps
 
-To integrate FLAME with FLAMEDockerBackend, the default `mix phx.new --sup` skeleton was adopted like so:
+To integrate FLAME with FLAMEDockerBackend, the default `mix new minimal --sup` skeleton was adopted like so:
 
 - **Added [Mix dependencies](mix.exs).**
 
@@ -25,17 +25,17 @@ To integrate FLAME with FLAMEDockerBackend, the default `mix phx.new --sup` skel
   @impl true
   def start(_type, _args) do
     children = [
-      {FLAME.Pool, name: Minimal.Runner, backend: FLAMEDockerBackend, min: 0, max: 2, idle_shutdown_after: 30_000}
+      {FLAME.Pool, name: Minimal.Runner, backend: FLAMEDockerBackend, min: 0, max: 2, idle_shutdown_after: 15_000}
     ]
 
     ...
   end
   ```
 
-- **Added default configs.** See [./config/config.exs](test_apps/minimal/config/config.exs)
-and [./config/runtime.exs](test_apps/minimal/config/runtime.exs).
+- **Added default configs.** See [./config/config.exs](./config/config.exs)
+and [./config/runtime.exs](./config/runtime.exs).
 
-- **Added [Dockerfile](test_apps/minimal/Dockerfile).**
+- **Added [Dockerfile](./Dockerfile).**
 
 ## Trying it Out
 

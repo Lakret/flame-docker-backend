@@ -3,8 +3,8 @@ defmodule PhxMinimal.Colors.FlameColor do
   import Ecto.Changeset
 
   schema "flame_colors" do
-    field :color, :string
-    field :runner_node, :string
+    field(:color, :string)
+    field(:runner_node, :string)
 
     timestamps(type: :utc_datetime)
   end

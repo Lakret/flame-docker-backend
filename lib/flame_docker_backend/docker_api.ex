@@ -3,7 +3,7 @@ defmodule FLAMEDockerBackend.DockerAPI do
   Thin wrapper over Docker Engine API via Unix socket.
 
   Transport only — sends JSON bodies as-is. `FLAMEDockerBackend` builds
-  create payloads via `build_create_body/1` (see `docs/PLAN.md` §5).
+  the container create payloads; this module just relays them to Docker.
 
   Uses OTP `:httpc` with a dedicated profile (`:flame_docker`) to isolate
   it from other `:httpc` users in the same BEAM.

@@ -1,5 +1,8 @@
 # Implementation Plan: FLAME Docker Backend (DooD)
 
+> Internal design notes. Kept for history; may be out of date with the shipped
+> code. Not part of the published documentation.
+
 A `FLAME.Backend` that provisions runner nodes as Docker containers via the Docker Engine API.
 The parent app itself runs inside a container and talks to the host Docker daemon
 through the mounted socket (`/var/run/docker.sock`, `unix:///mnt/wsl/shared-docker/docker.sock` on WSL2 ) —

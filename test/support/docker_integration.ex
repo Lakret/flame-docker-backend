@@ -43,14 +43,21 @@ defmodule FLAMEDockerBackend.DockerIntegration do
   end
 
   def ensure_image!(app) when app in [:minimal, :phx_minimal] do
-    %{image: image, dockerfile: dockerfile} = Map.fetch!(@test_apps, app)
+    key = {__MODULE__, :image_built, app}
 
-    case DockerAPI.build_image(image, Path.join(@repo_root, dockerfile), @repo_root) do
-      {:ok, _} ->
-        :ok
+    if :persistent_term.get(key, false) do
+      :ok
+    else
+      %{image: image, dockerfile: dockerfile} = Map.fetch!(@test_apps, app)
 
-      {:error, reason} ->
-        raise "docker build #{image} failed: #{inspect(reason)}"
+      case DockerAPI.build_image(image, Path.join(@repo_root, dockerfile), @repo_root) do
+        {:ok, _} ->
+          :persistent_term.put(key, true)
+          :ok
+
+        {:error, reason} ->
+          raise "docker build #{image} failed: #{inspect(reason)}"
+      end
     end
   end
 

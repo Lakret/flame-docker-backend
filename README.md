@@ -54,7 +54,7 @@ Then add a `FLAME.Pool` to your application supervisor:
  backend: FLAMEDockerBackend,
  min: 0,
  max: 4,
- idle_shutdown_after: 30_000}
+ idle_shutdown_after: 15_000}
 ```
 
 **Required options:**
@@ -156,7 +156,7 @@ config :flame, FLAMEDockerBackend,
     ]},
  min: 0,
  max: 2,
- idle_shutdown_after: 30_000}
+ idle_shutdown_after: 15_000}
 ```
 
 **One-off runner** with custom container settings:
@@ -274,8 +274,11 @@ and starts the parent container with IEx on port 4000.
 Optional arguments:
 
 ```bash
-# custom docker run flags
-./scripts/phx_minimal/01_run.sh "-d"
+# custom command (FLAGS default omitted when CMD is provided)
+./scripts/phx_minimal/01_run.sh "bin/phx_minimal remote"
+
+# custom command and docker run flags
+./scripts/phx_minimal/01_run.sh "bin/phx_minimal start_iex" "-d"
 ```
 
 **Try the FLAME backend in the browser:**

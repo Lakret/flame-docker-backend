@@ -30,7 +30,7 @@ To integrate FLAME with FLAMEDockerBackend, the default `mix phx.new --sup` skel
        backend: FLAMEDockerBackend,
        min: 0,
        max: 2,
-       idle_shutdown_after: 30_000},
+       idle_shutdown_after: 15_000},
       ...
     ]
 
@@ -42,12 +42,20 @@ To integrate FLAME with FLAMEDockerBackend, the default `mix phx.new --sup` skel
 
   ```elixir
   if config_env() in [:prod, :dev] do
-    config :flame, :backend, FLAMEDockerBackend
-
-    config :flame, FLAMEDockerBackend,
+    flame_opts = [
       image: System.get_env("FLAME_IMAGE", "phx_minimal:latest"),
       network: System.get_env("FLAME_NETWORK", "phx_minimal_flame_docker_backend_test"),
       env: %{"SECRET_KEY_BASE" => System.get_env("SECRET_KEY_BASE")}
+    ]
+
+    flame_opts =
+      case System.get_env("FLAME_HOST_CONFIG") do
+        nil -> flame_opts
+        json -> Keyword.put(flame_opts, :host_config, Jason.decode!(json))
+      end
+
+    config :flame, :backend, FLAMEDockerBackend
+    config :flame, FLAMEDockerBackend, flame_opts
   end
   ```
 

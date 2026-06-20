@@ -21,6 +21,7 @@ defmodule Minimal.MixProject do
   defp deps do
     [
       {:flame, "~> 0.5"},
+      {:jason, "~> 1.4"},
       {:flame_docker_backend, path: "../../"}
     ]
   end

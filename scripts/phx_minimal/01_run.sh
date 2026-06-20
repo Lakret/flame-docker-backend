@@ -1,9 +1,14 @@
 #!/bin/bash
 
-FLAGS=$1
+CMD=$1
+FLAGS=$2
 
-if [ -z "$FLAGS" ]; then
-  FLAGS="-it"
+if [ -z "$CMD" ]; then
+  CMD="bin/phx_minimal start_iex"
+
+  if [ -z "$FLAGS" ]; then
+    FLAGS="-it"
+  fi
 fi
 
 WSL_DOCKER_SOCKET_PATH=/mnt/wsl/shared-docker/docker.sock
@@ -29,6 +34,7 @@ docker run $FLAGS --rm \
   --network "$NETWORK_NAME" \
   -p 4000:4000 \
   -v "$DOCKER_SOCKET_PATH:/var/run/docker.sock" \
+  -e FLAME_NETWORK="$NETWORK_NAME" \
   -e PHX_SERVER=true \
   -e SECRET_KEY_BASE=yU6FuZbC4EGZtSSR39kyGBPzG5S3XubPjhj+Har5+wsnogPrt+zg4zED8p02qINt \
-  phx_minimal:latest bin/phx_minimal start_iex
+  phx_minimal:latest $CMD

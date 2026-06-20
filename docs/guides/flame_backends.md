@@ -2,6 +2,9 @@
 
 This guide explains how to implement a custom `FLAME.Backend` for alternative compute providers.
 
+`FLAMEDockerBackend` is itself a worked example: it provisions runners as Docker
+containers via the Docker Engine API. Read its source alongside this guide.
+
 ## Architecture Overview
 
 FLAME separates concerns between three main components:
@@ -368,5 +371,6 @@ The Runner handles this internally; no backend action needed.
 
 ## Reference Implementations
 
+- `FLAMEDockerBackend` - Provisions runners as Docker containers via the Docker Engine API
 - `FLAME.FlyBackend` - Full distributed backend for Fly.io machines
 - `FLAME.LocalBackend` - Simple local backend for development/testing

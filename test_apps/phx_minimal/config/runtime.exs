@@ -23,12 +23,20 @@ end
 config :phx_minimal, PhxMinimalWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 if config_env() in [:prod, :dev] do
-  config :flame, :backend, FLAMEDockerBackend
-
-  config :flame, FLAMEDockerBackend,
+  flame_opts = [
     image: System.get_env("FLAME_IMAGE", "phx_minimal:latest"),
     network: System.get_env("FLAME_NETWORK", "phx_minimal_flame_docker_backend_test"),
     env: %{"SECRET_KEY_BASE" => System.get_env("SECRET_KEY_BASE")}
+  ]
+
+  flame_opts =
+    case System.get_env("FLAME_HOST_CONFIG") do
+      nil -> flame_opts
+      json -> Keyword.put(flame_opts, :host_config, Jason.decode!(json))
+    end
+
+  config :flame, :backend, FLAMEDockerBackend
+  config :flame, FLAMEDockerBackend, flame_opts
 end
 
 if config_env() == :prod do
