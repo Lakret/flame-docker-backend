@@ -24,6 +24,12 @@ jobs:
       - name: Check formatting
         run: mix format --check-formatted
 
+      - name: Check formatting of test_apps/minimal
+        run: (cd test_apps/minimal && mix format --check-formatted)
+
+      - name: Check formatting of test_apps/phx_minimal
+        run: (cd test_apps/phx_minimal && mix format --check-formatted)
+
       - name: Compile
         run: mix compile --warnings-as-errors
 

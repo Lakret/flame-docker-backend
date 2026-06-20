@@ -34,8 +34,7 @@ defmodule PhxMinimalWeb.FlameDemoLive do
           class="btn btn-lg btn-primary min-w-56 transition-all duration-500"
           style={button_style(@latest)}
         >
-          Spawn FLAME task
-          <span :if={@pending > 0} class="badge badge-neutral ml-2">{@pending}</span>
+          Spawn FLAME task <span :if={@pending > 0} class="badge badge-neutral ml-2">{@pending}</span>
         </button>
 
         <div
